@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>課室計分榜 - 雲端同步</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; touch-action: manipulation; }
+        /* 確保 7 組平均分配高度，不產生捲軸 */
+        #scoreboard { 
+            grid-template-rows: repeat(7, 1fr); 
+            height: calc(100vh - 120px); 
+            min-height: 500px;
+        }
+        .group-card { transition: all 0.5s ease; }
+        .btn-touch:active { transform: scale(0.9); }
+        
+        @keyframes save-flash {
+            0% { opacity: 0; transform: translateY(5px); }
+            50% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-5px); }
+        }
+        .save-indicator {
+            animation: save-flash 1.5s ease-in-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 overflow-hidden p-2">
+    <header class="bg-white rounded-xl shadow-sm px-3 py-2 mb-2 flex justify-between items-center relative">
+        <div>
+            <h1 class="font-bold text-slate-800 text-sm">雲端同步計分榜</h1>
+            <div id="saveStatus" class="text-[10px] text-blue-600 font-bold opacity-0 absolute">● 雲端已同步</div>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="addOneToAll()" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1 rounded-lg text-xs font-bold transition">全體 +1</button>
+            <button onclick="resetScores()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1 rounded-lg text-xs font-medium transition">重置</button>
+        </div>
+    </header>
+
+    <div id="scoreboard" class="grid grid-cols-1 gap-1"></div>
+
+    <!-- 提示音 -->
+    <audio id="plusSound" src="https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"></audio>
+    <audio id="minusSound" src="https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3"></audio>
+
+    <script>
+        // --- 設定區 ---
+        // 使用您提供的 npoint ID
+        const JSON_BIN_ID = '085cbfd3a843d7d7df1a'; 
+        const API_URL = `https://api.npoint.io/${JSON_BIN_ID}`;
+
+        const defaultGroups = [
+            { id: 101, name: '第一直行', score: 0, color: 'border-blue-500 bg-blue-50' },
+            { id: 102, name: '第二直行', score: 0, color: 'border-green-500 bg-green-50' },
+            { id: 103, name: '第三直行', score: 0, color: 'border-purple-500 bg-purple-50' },
+            { id: 104, name: '第四直行', score: 0, color: 'border-orange-500 bg-orange-50' },
+            { id: 105, name: '第五直行', score: 0, color: 'border-pink-500 bg-pink-50' },
+            { id: 106, name: '🦸‍♂️超人聯盟', score: -50, color: 'border-cyan-500 bg-cyan-50' }, // 預設 -50
+            { id: 107, name: '😈壞蛋聯盟', score: 50, color: 'border-indigo-500 bg-indigo-50' }  // 預設 50
+        ];
+
+        let groups = [];
+        let isSaving = false;
+
+        // 1. 從雲端或本地讀取資料
+        async function loadData() {
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error("API 回應異常");
+                const cloudData = await response.json();
+                
+                if (Array.isArray(cloudData) && cloudData.length === 7) {
+                    groups = cloudData;
+                    // 確保名稱包含 Emoji
+                    groups[5].name = '🦸‍♂️超人聯盟';
+                    groups[6].name = '😈壞蛋聯盟';
+                    console.log("雲端同步成功");
+                } else {
+                    throw new Error("雲端無效資料");
+                }
+            } catch (e) {
+                console.warn("雲端讀取失敗，嘗試本地儲存:", e);
+                const saved = localStorage.getItem('classroom_scores_final_v7');
+                groups = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(defaultGroups));
+                // 強制修正名稱，以防本地舊資料沒有 Emoji
+                groups[5].name = '🦸‍♂️超人聯盟';
+                groups[6].name = '😈壞蛋聯盟';
+            }
+            render();
+        }
+
+        // 2. 保存資料
+        async function saveData() {
+            localStorage.setItem('classroom_scores_final_v7', JSON.stringify(groups));
+
+            if (isSaving) return;
+            isSaving = true;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(groups)
+                });
+                
+                if (response.ok) {
+                    showSaveIndicator();
+                }
+            } catch (e) {
+                console.error("雲端更新失敗", e);
+            } finally {
+                isSaving = false;
+            }
+        }
+
+        function showSaveIndicator() {
+            const indicator = document.getElementById('saveStatus');
+            indicator.classList.remove('save-indicator');
+            void indicator.offsetWidth; 
+            indicator.classList.add('save-indicator');
+        }
+
+        function playSound(isPlus) {
+            const sound = document.getElementById(isPlus ? 'plusSound' : 'minusSound');
+            if (sound) {
+                sound.volume = 0.15; 
+                sound.currentTime = 0;
+                sound.play().catch(() => {});
+            }
+        }
+
+        window.changeScore = (id, delta) => {
+            const group = groups.find(g => g.id === id);
+            if (group) {
+                group.score += delta;
+                render();
+                saveData();
+                playSound(delta > 0);
+            }
+        };
+
+        window.addOneToAll = () => {
+            groups.forEach(g => g.score += 1);
+            render();
+            saveData();
+            playSound(true);
+        };
+
+        window.resetScores = () => {
+            if (confirm('確定要將雲端與本地所有分數重置為預設值嗎？')) {
+                // 重置回預設分數（含 Emoji 名稱）
+                groups = JSON.parse(JSON.stringify(defaultGroups));
+                render();
+                saveData();
+            }
+        };
+
+        function render() {
+            const container = document.getElementById('scoreboard');
+            const sortedGroups = [...groups].sort((a, b) => b.score - a.score);
+
+            container.innerHTML = sortedGroups.map((group) => `
+                <div id="group-${group.id}" class="group-card border-t-2 ${group.color} rounded-lg shadow-sm p-1.5 flex flex-row items-center justify-between relative overflow-hidden h-full">
+                    <div class="flex flex-col items-start justify-center pl-1">
+                        <h2 class="text-xl font-black text-slate-700 leading-none tracking-tight break-keep">
+                            ${group.name}
+                        </h2>
+                    </div>
+                    <div class="text-5xl font-black text-slate-800 tabular-nums flex-1 text-center">
+                        ${group.score}
+                    </div>
+                    <div class="flex flex-col gap-0.5 w-28 h-full justify-center">
+                        <div class="grid grid-cols-2 gap-1">
+                            <button onclick="changeScore(${group.id}, 2)" class="btn-touch bg-yellow-400 text-white text-2xl font-extrabold py-2 rounded-lg transition shadow-sm">+2</button>
+                            <button onclick="changeScore(${group.id}, 3)" class="btn-touch bg-yellow-400 text-white text-2xl font-extrabold py-2 rounded-lg transition shadow-sm">+3</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1">
+                            <button onclick="changeScore(${group.id}, 1)" class="btn-touch bg-emerald-500 text-white text-2xl font-extrabold py-2 rounded-lg transition shadow-sm">+1</button>
+                            <button onclick="changeScore(${group.id}, -1)" class="btn-touch bg-rose-500 text-white text-2xl font-extrabold py-2 rounded-lg transition shadow-sm">-1</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.onload = loadData;
+    </script>
+</body>
+</html>
