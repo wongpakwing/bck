@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課室計分榜 - 極致穩定版</title>
+    <title>課室計分榜 - 手動同步穩定版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; touch-action: manipulation; }
@@ -23,18 +23,31 @@
         .save-indicator {
             animation: save-flash 1.5s ease-in-out forwards;
         }
+
+        .sync-loading {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="bg-slate-50 overflow-hidden p-2">
-    <header class="bg-white rounded-xl shadow-sm px-3 py-2 mb-2 flex justify-between items-center relative">
+    <header class="bg-white rounded-xl shadow-sm px-3 py-2 mb-2 flex justify-between items-center relative border-b-2 border-slate-200">
         <div class="flex items-center gap-3">
             <div>
-                <h1 class="font-bold text-slate-800 text-sm">實時同步計分榜 (穩定版)</h1>
-                <div id="syncStatus" class="text-[9px] text-blue-500 font-medium">連線中...</div>
+                <h1 class="font-bold text-slate-800 text-sm">課室計分榜 (手動同步)</h1>
+                <div id="syncStatus" class="text-[9px] text-slate-400 font-medium">本地數據就緒</div>
             </div>
-            <div id="saveStatus" class="text-[10px] text-blue-600 font-bold opacity-0">● 雲端已同步</div>
+            <div id="saveStatus" class="text-[10px] text-blue-600 font-bold opacity-0">● 雲端已更新</div>
         </div>
         <div class="flex gap-2">
+            <!-- 新增手動同步按鈕 -->
+            <button id="syncBtn" onclick="manualSync()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-md">
+                <svg id="syncIcon" xmlns="http://www.w3.org/2003/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                同步數據
+            </button>
             <button onclick="addOneToAll()" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1 rounded-lg text-xs font-bold transition">全體 +1</button>
             <button onclick="resetScores()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1 rounded-lg text-xs font-medium transition">重置</button>
         </div>
@@ -60,87 +73,66 @@
         ];
 
         let groups = [];
-        let isSaving = false;
-        let lastCloudString = "";
-        let failureCount = 0;
+        let isSyncing = false;
+        let localChanged = false; // 追蹤是否有未同步的更改
 
-        // 1. 改進的讀取邏輯
-        async function fetchFromCloud() {
-            if (isSaving) return;
+        // 1. 手動同步按鈕邏輯：先下載最新，再合併本地，最後上傳
+        async function manualSync() {
+            if (isSyncing) return;
+            setSyncingUI(true);
+            updateStatus("正在同步...", "text-blue-500");
 
             try {
-                // 使用更強的 Cache Busting
-                const response = await fetch(`${API_URL}?nocache=${Date.now()}`, {
-                    method: 'GET',
-                    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+                // 1. 先從雲端抓取最新數據（防止多台設備衝突）
+                const fetchRes = await fetch(`${API_URL}?t=${Date.now()}`, { cache: "no-store" });
+                if (!fetchRes.ok) throw new Error("Fetch Failed");
+                const cloudData = await fetchRes.json();
+
+                // 2. 如果本地有改動，就以本地為主上傳；如果本地剛開啟沒改動，就以下載的為主
+                if (!localChanged && Array.isArray(cloudData) && cloudData.length === 7) {
+                    groups = cloudData;
+                    render();
+                }
+
+                // 3. 上傳當前數據到雲端
+                const saveRes = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(groups)
                 });
-                
-                if (!response.ok) throw new Error("Busy");
-                
-                const cloudData = await response.json();
-                const cloudString = JSON.stringify(cloudData);
-                
-                if (cloudString !== lastCloudString) {
-                    if (Array.isArray(cloudData) && cloudData.length === 7) {
-                        groups = cloudData;
-                        // 名稱強制修正
-                        groups[5].name = '🦸‍♂️超人聯盟';
-                        groups[6].name = '😈壞蛋聯盟';
-                        lastCloudString = cloudString;
-                        render();
-                        
-                        failureCount = 0;
-                        updateStatus("連線正常", "text-blue-500");
-                    }
+
+                if (saveRes.ok) {
+                    localChanged = false;
+                    showSaveIndicator();
+                    updateStatus("同步成功", "text-emerald-600");
+                } else {
+                    throw new Error("Save Failed");
                 }
             } catch (e) {
-                failureCount++;
-                if (failureCount > 5) {
-                    updateStatus("雲端同步延遲中...", "text-amber-600");
-                }
+                console.error(e);
+                updateStatus("同步延遲，請重試", "text-rose-500");
+            } finally {
+                setTimeout(() => setSyncingUI(false), 500);
+            }
+        }
+
+        function setSyncingUI(syncing) {
+            isSyncing = syncing;
+            const btn = document.getElementById('syncBtn');
+            const icon = document.getElementById('syncIcon');
+            if (syncing) {
+                btn.classList.add('opacity-70');
+                icon.classList.add('sync-loading');
+            } else {
+                btn.classList.remove('opacity-70');
+                icon.classList.remove('sync-loading');
             }
         }
 
         function updateStatus(msg, colorClass) {
             const el = document.getElementById('syncStatus');
-            el.innerText = msg + " (" + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}) + ")";
+            el.innerText = msg + " " + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
             el.className = `text-[9px] font-medium ${colorClass}`;
-        }
-
-        // 2. 改進的保存邏輯：減少寫入頻率
-        async function saveData() {
-            const currentString = JSON.stringify(groups);
-            if (currentString === lastCloudString) return; // 如果沒變動就不重複寫入
-
-            localStorage.setItem('classroom_scores_final_v7', currentString);
-            
-            isSaving = true;
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' },
-                    body: currentString
-                });
-                
-                if (response.ok) {
-                    lastCloudString = currentString;
-                    showSaveIndicator();
-                    failureCount = 0;
-                }
-            } catch (e) {
-                console.warn("上傳稍候重試");
-            } finally {
-                // 增加冷卻時間，防止連點造成的 API 壓力
-                setTimeout(() => { isSaving = false; }, 1000);
-            }
-        }
-
-        // 定時輪詢：放慢頻率以增加穩定性
-        async function syncLoop() {
-            await fetchFromCloud();
-            // 正常時 4 秒檢查一次，異常時拉長到 8 秒
-            const nextDelay = failureCount > 3 ? 8000 : 4000;
-            setTimeout(syncLoop, nextDelay);
         }
 
         function showSaveIndicator() {
@@ -163,24 +155,30 @@
             const group = groups.find(g => g.id === id);
             if (group) {
                 group.score += delta;
+                localChanged = true;
                 render();
-                saveData();
                 playSound(delta > 0);
+                updateStatus("本地已更改，請按同步", "text-amber-500");
+                localStorage.setItem('classroom_scores_final_v7', JSON.stringify(groups));
             }
         };
 
         window.addOneToAll = () => {
             groups.forEach(g => g.score += 1);
+            localChanged = true;
             render();
-            saveData();
             playSound(true);
+            updateStatus("本地已更改，請按同步", "text-amber-500");
+            localStorage.setItem('classroom_scores_final_v7', JSON.stringify(groups));
         };
 
         window.resetScores = () => {
-            if (confirm('確定要將雲端與本地所有分數重置為預設值嗎？')) {
+            if (confirm('確定要將本地分數重置嗎？(需手動點擊同步才會更新雲端)')) {
                 groups = JSON.parse(JSON.stringify(defaultGroups));
+                localChanged = true;
                 render();
-                saveData();
+                updateStatus("本地已重置，請按同步", "text-amber-500");
+                localStorage.setItem('classroom_scores_final_v7', JSON.stringify(groups));
             }
         };
 
@@ -213,13 +211,15 @@
             `).join('');
         }
 
-        window.onload = () => {
+        window.onload = async () => {
+            // 先讀本地備份
             const saved = localStorage.getItem('classroom_scores_final_v7');
             if (saved) {
                 groups = JSON.parse(saved);
                 render();
             }
-            syncLoop();
+            // 嘗試自動獲取一次雲端數據
+            manualSync(); 
         };
     </script>
 </body>
