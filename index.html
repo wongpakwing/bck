@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課室計分榜 - 全功能雙賽制</title>
+    <title>課室計分榜 - 連動歸零賽制</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
@@ -18,25 +18,33 @@
             position: absolute;
             bottom: 0; left: 0; right: 0;
             height: 10px; background: rgba(226, 232, 240, 0.5);
+            z-index: 5;
         }
         .progress-bar {
             height: 100%; transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
             position: relative;
+            z-index: 10;
         }
-        /* 修正圖示位置，確保完全顯示 */
         .runner-icon {
             position: absolute; 
-            right: -12px; 
             top: 50%;
             transform: translateY(-50%); 
-            font-size: 24px;
-            z-index: 20;
+            font-size: 26px;
+            z-index: 50; 
             line-height: 1;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+            pointer-events: none;
         }
+        /* 學霸圖示靠右 */
+        .icon-right { right: -14px; }
+        /* 壞蛋圖示靠左 (對應從右往左長) */
+        .icon-left { left: -14px; }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .special-card {
             background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
             border-top: 4px solid;
+            overflow: visible !important;
         }
         .member-tag {
             background: rgba(255, 255, 255, 0.6);
@@ -47,14 +55,19 @@
             display: inline-block;
             margin: 1px;
         }
-        /* 骰子樣式：白底黑字 */
-        .dice-box {
+        .dice-number {
             background: white;
             color: black;
-            border-radius: 4px;
-            padding: 0 4px;
-            font-weight: bold;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            border-radius: 6px;
+            padding: 2px 10px;
+            font-weight: 900;
+            font-size: 1.25rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            border: 2px solid #334155;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 40px;
         }
     </style>
 </head>
@@ -87,7 +100,6 @@
     <!-- 底部控制台 -->
     <footer class="bg-slate-900 rounded-b-xl p-2 flex flex-col gap-2 shrink-0">
         <div class="flex gap-2">
-            <!-- 左方空間：抽學生、直顯骰子 -->
             <div class="flex-1 bg-slate-800 rounded-lg p-2 border border-slate-700 flex flex-col gap-1">
                 <div class="flex justify-between items-center mb-1 h-6">
                     <div id="pickerDisplay" class="text-amber-400 font-bold text-[10px] italic truncate">點擊功能按鈕...</div>
@@ -101,7 +113,6 @@
                 </div>
             </div>
             
-            <!-- 右方空間：獎懲、倒計時 -->
             <div class="flex-1 bg-slate-800 rounded-lg p-2 border border-slate-700 flex flex-col gap-1">
                 <div class="flex justify-between items-center mb-1">
                     <button onclick="startPick('reward')" class="btn-touch bg-purple-500 text-white px-3 py-1 rounded text-[11px] font-bold">抽獎懲</button>
@@ -163,10 +174,21 @@
             const specialContainer = document.getElementById('special-zone');
             specialContainer.innerHTML = specialGroups.map(g => {
                 const isWinner = g.score === 0;
-                const progress = Math.min(100, Math.max(0, ((g.score - g.startScore) / (0 - g.startScore)) * 100));
+                let progress = 0;
+                let styleStr = "";
+
+                if (g.id === 'A') {
+                    // 學霸：-50 -> 0，進度條從左往右長
+                    progress = Math.min(100, Math.max(0, ((g.score - g.startScore) / (0 - g.startScore)) * 100));
+                    styleStr = `width: ${progress}%; left: 0;`;
+                } else {
+                    // 壞蛋：50 -> 0，進度條從右往左長
+                    progress = Math.min(100, Math.max(0, ((g.startScore - g.score) / g.startScore) * 100));
+                    styleStr = `width: ${progress}%; right: 0; position: absolute;`;
+                }
                 
                 return `
-                    <div class="special-card ${g.color} rounded-xl p-2 flex flex-col justify-between relative shadow-lg overflow-hidden h-full">
+                    <div class="special-card ${g.color} rounded-xl p-2 flex flex-col justify-between relative shadow-lg h-full">
                         <div class="flex justify-between items-start">
                             <div class="flex flex-col">
                                 <span onclick="renameGroup('${g.id}', true)" class="text-[9px] font-black text-slate-500 border-b border-dotted cursor-pointer uppercase tracking-wider">${g.name}</span>
@@ -180,15 +202,14 @@
                             ${g.score}
                         </div>
                         <div class="flex gap-1 z-10">
-                            ${g.id === 'A' ? 
-                                `<button onclick="changeSpecialScore('A', 5)" class="flex-1 bg-rose-500 text-white font-bold py-1.5 rounded-lg text-sm">+5</button>
-                                 <button onclick="changeSpecialScore('A', 1)" class="flex-1 bg-rose-400 text-white font-bold py-1.5 rounded-lg text-sm">+1</button>` :
-                                `<button onclick="changeSpecialScore('B', -5)" class="flex-1 bg-blue-500 text-white font-bold py-1.5 rounded-lg text-sm">-5</button>
-                                 <button onclick="changeSpecialScore('B', -1)" class="flex-1 bg-blue-400 text-white font-bold py-1.5 rounded-lg text-sm">-1</button>`
-                            }
+                            <button onclick="handleSpecialClick('${g.id}', 2)" class="flex-1 bg-amber-500 text-white font-bold py-1 rounded-lg text-[10px]">+2</button>
+                            <button onclick="handleSpecialClick('${g.id}', 1)" class="flex-1 bg-emerald-500 text-white font-bold py-1 rounded-lg text-[10px]">+1</button>
+                            <button onclick="handleSpecialClick('${g.id}', -1)" class="flex-1 bg-rose-500 text-white font-bold py-1 rounded-lg text-[10px]">-1</button>
                         </div>
-                        <div class="progress-container h-[6px]">
-                            <div class="progress-bar ${g.barColor}" style="width: ${progress}%"><span class="runner-icon">${isWinner ? '🏆' : g.icon}</span></div>
+                        <div class="progress-container h-[8px]">
+                            <div class="progress-bar ${g.barColor}" style="${styleStr}">
+                                <span class="runner-icon ${g.id === 'A' ? 'icon-right' : 'icon-left'}">${isWinner ? '🏆' : g.icon}</span>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -202,38 +223,56 @@
                     <div class="bg-white border-l-8 ${g.color} rounded-lg shadow-sm px-4 flex flex-col justify-center relative overflow-visible h-full">
                         <div class="absolute inset-0 track-bg opacity-10 pointer-events-none"></div>
                         <div class="flex items-center justify-between z-10">
-                            <div onclick="renameGroup(${g.id}, false)" class="w-24 shrink-0 font-black text-slate-600 text-sm border-b border-dotted cursor-pointer">${g.name}</div>
+                            <div onclick="renameGroup(${g.id}, false)" class="w-20 shrink-0 font-black text-slate-600 text-xs border-b border-dotted cursor-pointer">${g.name}</div>
                             <div class="text-5xl font-black text-slate-800 tabular-nums flex-1 text-center">${g.score}</div>
-                            <div class="flex gap-2 shrink-0">
-                                <button onclick="changeRegularScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-10 h-10 rounded-xl font-black text-xl shadow-sm">+</button>
-                                <button onclick="changeRegularScore(${g.id}, -1)" class="btn-touch bg-slate-200 text-slate-500 w-10 h-10 rounded-xl font-black text-xl shadow-sm">-</button>
+                            <div class="flex gap-1 shrink-0">
+                                <button onclick="changeRegularScore(${g.id}, 2)" class="btn-touch bg-amber-500 text-white w-10 h-10 rounded-xl font-black text-lg shadow-sm">+2</button>
+                                <button onclick="changeRegularScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-10 h-10 rounded-xl font-black text-lg shadow-sm">+1</button>
+                                <button onclick="changeRegularScore(${g.id}, -1)" class="btn-touch bg-slate-400 text-white w-10 h-10 rounded-xl font-black text-lg shadow-sm">-1</button>
                             </div>
                         </div>
-                        <div class="progress-container">
-                            <div class="progress-bar ${g.barColor}" style="width: ${progress}%"><span class="runner-icon">${isWinner ? '🏆' : g.icon}</span></div>
+                        <div class="progress-container overflow-visible">
+                            <div class="progress-bar ${g.barColor}" style="width: ${progress}%">
+                                <span class="runner-icon icon-right">${isWinner ? '🏆' : g.icon}</span>
+                            </div>
                         </div>
                     </div>
                 `;
             }).join('');
         }
 
-        function setGoal() {
-            const newGoal = prompt('請輸入常規賽達標分數：', scoreGoal);
-            if (newGoal && !isNaN(newGoal)) {
-                scoreGoal = parseInt(newGoal);
-                document.getElementById('goalIndicator').innerText = `常規賽目標: ${scoreGoal}分`;
-                render();
-            }
-        }
+        // 核心邏輯：連動計分
+        function handleSpecialClick(groupId, delta) {
+            const groupA = specialGroups.find(g => g.id === 'A');
+            const groupB = specialGroups.find(g => g.id === 'B');
+            const oldA = groupA.score;
+            const oldB = groupB.score;
 
-        function changeSpecialScore(id, delta) {
-            const g = specialGroups.find(x => x.id === id);
-            const old = g.score;
-            g.score += delta;
-            if (id === 'A' && g.score > 0) g.score = 0;
-            if (id === 'B' && g.score < 0) g.score = 0;
-            render(); playSound(delta > 0);
-            if (g.score === 0 && old !== 0) confetti({ particleCount: 150 });
+            if (groupId === 'A') {
+                // 如果是學霸聯盟得分 (delta > 0 代表加分，但在 -50 體系中是向 0 靠攏)
+                // 這裡簡化邏輯：學霸 +N，壞蛋就 -N
+                groupA.score += delta;
+                groupB.score -= delta;
+            } else {
+                // 如果是壞蛋聯盟，他們的按鈕是 +2, +1, -1
+                // 邏輯要求：壞蛋減分(向0移動)，學霸就加分。
+                // 我們定義：按鈕上的 "+1" 對壞蛋來說是向0移動 (即真正的分數減1)
+                // 為了直覺，這裡設定：壞蛋點 +1 -> 分數減1；學霸分數加1
+                groupB.score -= delta;
+                groupA.score += delta;
+            }
+
+            // 邊界檢查
+            if (groupA.score > 0) groupA.score = 0;
+            if (groupA.score < -50) groupA.score = -50;
+            if (groupB.score < 0) groupB.score = 0;
+            if (groupB.score > 50) groupB.score = 50;
+
+            render();
+            playSound(delta > 0);
+            
+            if (groupA.score === 0 && oldA !== 0) confetti({ particleCount: 100 });
+            if (groupB.score === 0 && oldB !== 0) confetti({ particleCount: 100 });
         }
 
         function changeRegularScore(id, delta) {
@@ -271,21 +310,18 @@
             const area = document.getElementById('diceResultArea');
             const iconsSpan = document.getElementById('diceIcons');
             const pickerLabel = document.getElementById('pickerDisplay');
-            
             area.classList.remove('hidden');
             pickerLabel.innerText = `正在擲骰子...`;
-
             let i = 0;
-            const diceIcons = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
             const itv = setInterval(() => {
-                iconsSpan.innerHTML = `<span class="dice-box text-lg">${diceIcons[Math.floor(Math.random()*6)]}</span>`;
-                if(i++ > 10) { 
+                iconsSpan.innerHTML = `<span class="dice-number">${Math.floor(Math.random()*6)+1}</span>`;
+                if(i++ > 12) { 
                     clearInterval(itv); 
                     const val = Math.floor(Math.random()*6)+1;
-                    iconsSpan.innerHTML = `<span class="dice-box text-lg">${diceIcons[val-1]}</span>`;
+                    iconsSpan.innerHTML = `<span class="dice-number">${val}</span>`;
                     pickerLabel.innerText = "擲骰結果已顯示";
                 }
-            }, 80);
+            }, 60);
         }
 
         function closeModal() { document.getElementById('mainModal').classList.add('hidden'); }
@@ -310,11 +346,7 @@
                         const endSound = document.getElementById('timerEndSound');
                         endSound.currentTime = 0;
                         endSound.play();
-                        // 播放兩秒後停止音效
-                        setTimeout(() => {
-                            endSound.pause();
-                            endSound.currentTime = 0;
-                        }, 2000);
+                        setTimeout(() => { endSound.pause(); endSound.currentTime = 0; }, 2000);
                         document.getElementById('timerToggle').innerText="開始"; 
                     }
                 }, 1000);
@@ -343,6 +375,14 @@
         }
         function addOneToAllRegular() { regularGroups.forEach(g => g.score++); render(); playSound(true); }
         function resetAll() { if(confirm('重置分數？')) { specialGroups[0].score = -50; specialGroups[1].score = 50; regularGroups.forEach(g => g.score = 0); render(); } }
+        function setGoal() {
+            const newGoal = prompt('請輸入常規賽達標分數：', scoreGoal);
+            if (newGoal && !isNaN(newGoal)) {
+                scoreGoal = parseInt(newGoal);
+                document.getElementById('goalIndicator').innerText = `常規賽目標: ${scoreGoal}分`;
+                render();
+            }
+        }
 
         window.onload = render;
     </script>
