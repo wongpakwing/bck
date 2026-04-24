@@ -74,7 +74,7 @@
             border: 2px solid #1e293b;
         }
 
-        /* 修正 Emoji 覆蓋問題 */
+        /* 修正 Emoji 顯示與層級 */
         .runner-emoji {
             z-index: 20;
             filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
@@ -121,7 +121,10 @@
             <!-- 右側：功能區 (擲骰與計時) -->
             <div class="flex-[1.5] bg-slate-800 rounded-lg p-2 border border-slate-700">
                 <div class="flex justify-between items-center mb-1">
-                    <div id="timerDisplay" class="font-mono text-lg text-white font-black">00:00</div>
+                    <div class="flex flex-col">
+                        <div id="timerDisplay" class="font-mono text-lg text-white font-black leading-none">00:00</div>
+                        <div id="diceDisplay" class="text-rose-400 font-bold text-[10px] mt-1">🎲 等待擲骰...</div>
+                    </div>
                     <div class="flex gap-1">
                         <button onclick="rollDiceDirect()" class="btn-touch bg-rose-500 text-white px-3 py-1 rounded text-[10px] font-bold">🎲 擲骰</button>
                         <button id="timerToggle" onclick="toggleTimer()" class="bg-blue-500 text-white px-3 py-1 rounded text-[10px] font-bold">開始</button>
@@ -153,6 +156,7 @@
 
     <script>
         // 數據狀態
+        let isDuelModeActive = false; // 用於追蹤是否已經觸發過分數相等
         let specialGroups = [
             { id: 'A', name: '學霸聯盟', score: -50, icon: '🦸', color: 'text-red-500', barColor: 'bg-red-500', members: '名單A' },
             { id: 'B', name: '壞蛋聯盟', score: 50, icon: '😈', color: 'text-blue-500', barColor: 'bg-blue-500', members: '名單B' }
@@ -173,19 +177,22 @@
         function render() {
             const teamA = specialGroups[0];
             const teamB = specialGroups[1];
-            const isDuel = teamA.score === teamB.score;
             
-            document.getElementById('modeText').innerText = isDuel ? "拉鋸模式啟動" : "勢力抗衡中";
-            document.getElementById('modeText').className = isDuel ? "text-rose-500 font-bold animate-pulse text-[10px]" : "text-blue-600 text-[10px]";
+            // 檢查是否觸發拉鋸
+            if (teamA.score === teamB.score) {
+                isDuelModeActive = true;
+            }
+            
+            document.getElementById('modeText').innerText = isDuelModeActive ? "拉鋸模式啟動" : "勢力抗衡中";
+            document.getElementById('modeText').className = isDuelModeActive ? "text-rose-500 font-bold animate-pulse text-[10px]" : "text-blue-600 text-[10px]";
 
             // 1. 渲染頂部合倂區
             const specialContainer = document.getElementById('special-zone');
             
-            // 進度計算：以絕對值 100 作為參考範圍
             let leftProgress = Math.max(0, Math.min(100, (teamA.score + 100) / 2)); 
             let rightProgress = Math.max(0, Math.min(100, (teamB.score + 100) / 2));
 
-            specialContainer.className = `p-3 bg-slate-900 border-x border-slate-300 flex flex-col justify-center transition-colors duration-500 ${isDuel ? 'duel-pulse' : ''}`;
+            specialContainer.className = `p-3 bg-slate-900 border-x border-slate-300 flex flex-col justify-center transition-colors duration-500 ${isDuelModeActive ? 'duel-pulse' : ''}`;
             specialContainer.innerHTML = `
                 <div class="flex justify-between items-end mb-2">
                     <div class="text-left">
@@ -234,7 +241,7 @@
             regularContainer.innerHTML = regularGroups.map(g => {
                 const progress = Math.min(100, (g.score / scoreGoal) * 100);
                 return `
-                    <div class="bg-white border-l-4 ${g.barColor.replace('bg-','border-')} rounded-lg shadow-sm px-4 py-2 flex flex-col justify-center flex-1 relative min-h-[50px]">
+                    <div class="bg-white border-l-4 ${g.barColor.replace('bg-','border-')} rounded-lg shadow-sm px-4 py-1.5 flex flex-col justify-center flex-1 relative min-h-[50px]">
                         <div class="flex items-center justify-between z-30 gap-2 relative">
                             <div class="w-12 font-bold text-slate-500 text-[10px] leading-tight shrink-0">${g.name}</div>
                             <div class="text-3xl font-black text-slate-800 tabular-nums flex-1 text-center">${g.score}</div>
@@ -244,13 +251,13 @@
                                 <button onclick="changeRegularScore(${g.id}, -1)" class="btn-touch bg-slate-300 text-slate-600 w-10 h-8 rounded-lg font-bold text-sm">-1</button>
                             </div>
                         </div>
-                        <!-- 進度條軌道 -->
-                        <div class="progress-track mt-1 h-2 bg-slate-100 rounded-full relative overflow-visible z-10">
+                        <!-- 進度條軌道 (增粗至 h-4) -->
+                        <div class="progress-track mt-1 h-4 bg-slate-100 rounded-full relative overflow-visible z-10">
                             <!-- 進度填充 -->
-                            <div class="progress-fill ${g.barColor} h-full rounded-full transition-all duration-500 opacity-40" style="width: ${progress}%"></div>
+                            <div class="progress-fill ${g.barColor} h-full rounded-full transition-all duration-500 opacity-40 shadow-inner" style="width: ${progress}%"></div>
                             <!-- Runner Emoji -->
-                            <div class="runner-emoji absolute top-1/2 -translate-y-1/2" style="left: ${progress}%; margin-left: -8px;">
-                                <span style="font-size: 16px;">${g.score >= scoreGoal ? '🏆' : g.icon}</span>
+                            <div class="runner-emoji absolute top-1/2 -translate-y-1/2" style="left: ${progress}%; margin-left: -10px;">
+                                <span style="font-size: 20px;">${g.score >= scoreGoal ? '🏆' : g.icon}</span>
                             </div>
                         </div>
                     </div>
@@ -261,10 +268,9 @@
         function handleSpecialScore(groupId, delta) {
             const teamA = specialGroups[0];
             const teamB = specialGroups[1];
-            const isDuel = (teamA.score === teamB.score) && teamA.score !== 0;
 
-            if (isDuel) {
-                // 拉鋸模式
+            if (isDuelModeActive) {
+                // 拉鋸模式已啟動：一人得一分，另一人退一分
                 if (groupId === 'A') {
                     teamA.score += delta;
                     teamB.score -= delta;
@@ -276,18 +282,27 @@
                 // 獨立得分
                 const group = specialGroups.find(g => g.id === groupId);
                 group.score += delta;
+                
+                // 檢查本次加分後是否進入拉鋸模式
+                if (teamA.score === teamB.score) {
+                    isDuelModeActive = true;
+                }
             }
             
             render();
             playSound(delta > 0);
-            if (teamA.score >= 150 || teamB.score >= 150) confetti({ particleCount: 150, spread: 100 });
+            if (Math.abs(teamA.score) >= 200 || Math.abs(teamB.score) >= 200) {
+                confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } });
+            }
         }
 
         function changeRegularScore(id, delta) {
             const g = regularGroups.find(x => x.id === id);
             g.score = Math.max(0, g.score + delta);
             render(); playSound(delta > 0);
-            if (g.score >= scoreGoal && delta > 0) confetti({ particleCount: 50 });
+            if (g.score >= scoreGoal && delta > 0) {
+                confetti({ particleCount: 50, origin: { y: 0.7 } });
+            }
         }
 
         function playSound(isPlus) {
@@ -314,22 +329,38 @@
             let i = 0;
             const itv = setInterval(() => {
                 result.innerText = list[Math.floor(Math.random() * list.length)];
-                if(i++ > 12) { clearInterval(itv); confetti({ particleCount: 40 }); }
+                if(i++ > 15) { 
+                    clearInterval(itv); 
+                    // 結果揭曉時噴灑紙碎
+                    confetti({ 
+                        particleCount: 80, 
+                        spread: 70, 
+                        origin: { y: 0.6 },
+                        colors: ['#fbbf24', '#a855f7', '#ef4444', '#3b82f6', '#10b981']
+                    }); 
+                }
             }, 80);
         }
 
         function rollDiceDirect() {
             let i = 0;
+            const display = document.getElementById('diceDisplay');
             const itv = setInterval(() => {
                 const val = Math.floor(Math.random() * 6) + 1;
-                document.getElementById('pickerDisplay').innerText = `🎲 點數：${val}`;
+                display.innerText = `🎲 點數：${val}`;
                 if(i++ > 10) clearInterval(itv);
             }, 60);
         }
 
         let timerSeconds = 0, timerInterval = null;
         function addTimer(s) { timerSeconds += s; updateTimer(); }
-        function resetTimer() { timerSeconds = 0; updateTimer(); clearInterval(timerInterval); timerInterval = null; document.getElementById('timerToggle').innerText = '開始'; }
+        function resetTimer() { 
+            timerSeconds = 0; 
+            updateTimer(); 
+            clearInterval(timerInterval); 
+            timerInterval = null; 
+            document.getElementById('timerToggle').innerText = '開始'; 
+        }
         function updateTimer() {
             document.getElementById('timerDisplay').innerText = 
                 `${Math.floor(timerSeconds/60).toString().padStart(2,'0')}:${(timerSeconds%60).toString().padStart(2,'0')}`;
@@ -351,7 +382,8 @@
                         clearInterval(timerInterval);
                         timerInterval = null;
                         document.getElementById('timerToggle').innerText = '開始';
-                        playSound(false); // 結束音效
+                        playSound(false);
+                        confetti({ particleCount: 100, spread: 160 });
                     }
                 }, 1000); 
             }
@@ -361,7 +393,9 @@
             if(confirm('重置所有數據？')) { 
                 specialGroups[0].score = -50; 
                 specialGroups[1].score = 50; 
+                isDuelModeActive = false; // 重置拉鋸狀態
                 regularGroups.forEach(g => g.score = 0); 
+                document.getElementById('diceDisplay').innerText = `🎲 等待擲骰...`;
                 render(); 
             } 
         }
