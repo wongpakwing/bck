@@ -1,10 +1,9 @@
-```html
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課室計分榜 - 實時同步版</title>
+    <title>課室計分榜 - 強制同步版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; touch-action: manipulation; }
@@ -24,22 +23,14 @@
         .save-indicator {
             animation: save-flash 1.5s ease-in-out forwards;
         }
-
-        /* 數字跳動動畫 */
-        .score-bump { animation: score-pop 0.3s ease-out; }
-        @keyframes score-pop {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.2); color: #10b981; }
-            100% { transform: scale(1); }
-        }
     </style>
 </head>
 <body class="bg-slate-50 overflow-hidden p-2">
     <header class="bg-white rounded-xl shadow-sm px-3 py-2 mb-2 flex justify-between items-center relative">
         <div class="flex items-center gap-3">
             <div>
-                <h1 class="font-bold text-slate-800 text-sm">實時同步計分榜</h1>
-                <div id="syncStatus" class="text-[9px] text-blue-500 font-medium">同步中...</div>
+                <h1 class="font-bold text-slate-800 text-sm">實時同步計分榜 (強制更新)</h1>
+                <div id="syncStatus" class="text-[9px] text-blue-500 font-medium">初始化中...</div>
             </div>
             <div id="saveStatus" class="text-[10px] text-blue-600 font-bold opacity-0">● 雲端已更新</div>
         </div>
@@ -70,39 +61,44 @@
 
         let groups = [];
         let isSaving = false;
-        let lastCloudString = ""; // 用於比對雲端是否有變動
+        let lastCloudString = "";
 
-        // 1. 從雲端抓取資料 (加入比對機制，避免無謂的重新渲染)
+        // 1. 強制從雲端抓取 (加入 timestamp 繞過緩存)
         async function fetchFromCloud() {
             try {
-                const response = await fetch(API_URL);
+                // 加入隨機參數防止瀏覽器緩存
+                const timestamp = new Date().getTime();
+                const response = await fetch(`${API_URL}?t=${timestamp}`, {
+                    cache: "no-store",
+                    headers: { 'Cache-Control': 'no-cache' }
+                });
+                
                 if (!response.ok) throw new Error();
                 const cloudData = await response.json();
                 
                 const cloudString = JSON.stringify(cloudData);
                 
-                // 只有當雲端資料跟本地不同時，才更新界面
+                // 比對資料，若不同則更新
                 if (cloudString !== lastCloudString && !isSaving) {
-                    console.log("偵測到雲端變動，更新界面...");
-                    groups = cloudData;
-                    // 強制校正名稱
-                    groups[5].name = '🦸‍♂️超人聯盟';
-                    groups[6].name = '😈壞蛋聯盟';
-                    lastCloudString = cloudString;
-                    render();
-                    document.getElementById('syncStatus').innerText = "連線正常: " + new Date().toLocaleTimeString();
+                    if (Array.isArray(cloudData) && cloudData.length === 7) {
+                        groups = cloudData;
+                        // 確保名稱正確
+                        groups[5].name = '🦸‍♂️超人聯盟';
+                        groups[6].name = '😈壞蛋聯盟';
+                        lastCloudString = cloudString;
+                        render();
+                        document.getElementById('syncStatus').innerText = "最後同步: " + new Date().toLocaleTimeString();
+                    }
                 }
             } catch (e) {
-                document.getElementById('syncStatus').innerText = "重新連線中...";
-                console.error("同步失敗");
+                document.getElementById('syncStatus').innerText = "連線異常，正在重試...";
             }
         }
 
         // 2. 保存資料
         async function saveData() {
             localStorage.setItem('classroom_scores_final_v7', JSON.stringify(groups));
-            lastCloudString = JSON.stringify(groups); // 防止自己存完又觸發 fetch 更新
-
+            
             isSaving = true;
             try {
                 const response = await fetch(API_URL, {
@@ -110,7 +106,11 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(groups)
                 });
-                if (response.ok) showSaveIndicator();
+                
+                if (response.ok) {
+                    lastCloudString = JSON.stringify(groups);
+                    showSaveIndicator();
+                }
             } catch (e) {
                 console.error("上傳失敗");
             } finally {
@@ -118,9 +118,8 @@
             }
         }
 
-        // --- 定時功能 ---
-        // 每 3 秒自動去雲端檢查一次
-        setInterval(fetchFromCloud, 3000);
+        // 每 2 秒強制檢查一次
+        setInterval(fetchFromCloud, 2000);
 
         function showSaveIndicator() {
             const indicator = document.getElementById('saveStatus');
@@ -191,19 +190,14 @@
             `).join('');
         }
 
-        window.onload = () => {
-            loadData(); // 初次載入
-            async function loadData() {
-                await fetchFromCloud();
-                if (groups.length === 0) { // 如果雲端沒資料，讀取本地
-                    const saved = localStorage.getItem('classroom_scores_final_v7');
-                    groups = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(defaultGroups));
-                    render();
-                }
+        window.onload = async () => {
+            await fetchFromCloud();
+            if (groups.length === 0) {
+                const saved = localStorage.getItem('classroom_scores_final_v7');
+                groups = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(defaultGroups));
+                render();
             }
         };
     </script>
 </body>
 </html>
-
-```
