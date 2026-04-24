@@ -88,6 +88,17 @@
             pointer-events: none;
             transition: left 0.4s ease-out;
         }
+
+        /* 骰仔顯示樣式 */
+        .dice-box {
+            background: white;
+            color: black;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 900;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: inline-block;
+        }
     </style>
 </head>
 <body class="bg-slate-200 overflow-hidden px-2 pt-2 h-screen flex flex-col text-slate-800">
@@ -103,29 +114,30 @@
         </div>
     </header>
 
-    <!-- 特種競賽區 (已壓縮高度) -->
+    <!-- 特種競賽區 -->
     <div id="special-zone" class="p-3 bg-slate-900 border-x border-slate-300 flex flex-col justify-center">
         <!-- JS Render -->
     </div>
 
-    <!-- 常規區 (將獲得更多剩餘空間) -->
+    <!-- 常規區 -->
     <div id="regular-zone" class="bg-slate-100 p-2 border-x border-slate-300 flex flex-col gap-2 no-scrollbar overflow-hidden">
         <!-- JS Render -->
     </div>
 
-    <!-- 底部控制台 (平均分配功能區) -->
+    <!-- 底部控制台 -->
     <footer class="bg-slate-900 rounded-b-xl p-2 flex flex-col gap-2 shrink-0 pb-3">
         <div class="flex gap-2 w-full">
-            <!-- 左側：功能區 (佔 50%) -->
+            <!-- 左側：功能區 (平均分配 50%) -->
             <div class="flex-1 bg-slate-800 rounded-lg p-2 border border-slate-700">
                 <div class="flex justify-between items-center mb-1">
-                    <div class="flex flex-col">
-                        <div id="timerDisplay" class="font-mono text-lg text-white font-black leading-none">00:00</div>
-                        <div id="diceDisplay" class="text-rose-400 font-bold text-[10px] mt-1">🎲 等待...</div>
+                    <div class="flex items-center gap-3">
+                        <div id="timerDisplay" class="font-mono text-xl text-white font-black leading-none">00:00</div>
+                        <div id="diceDisplay" class="dice-box text-xs">🎲 ?</div>
                     </div>
                     <div class="flex gap-1">
                         <button onclick="rollDiceDirect()" class="btn-touch bg-rose-500 text-white px-2 py-1 rounded text-[10px] font-bold">🎲 擲骰</button>
-                        <button id="timerToggle" onclick="toggleTimer()" class="bg-blue-500 text-white px-2 py-1 rounded text-[10px] font-bold">開始</button>
+                        <button onclick="diceAddOne()" class="btn-touch bg-orange-500 text-white px-2 py-1 rounded text-[10px] font-bold">骰仔+1</button>
+                        <button id="timerToggle" onclick="toggleTimer()" class="bg-blue-500 text-white px-2 py-1 rounded text-[10px] font-bold ml-1">開始</button>
                     </div>
                 </div>
                 <div class="flex gap-1">
@@ -136,7 +148,7 @@
                 </div>
             </div>
 
-            <!-- 右側：抽籤區 (佔 50%) -->
+            <!-- 右側：抽籤區 (平均分配 50%) -->
             <div class="flex-1 bg-slate-800 rounded-lg p-2 border border-slate-700 flex flex-col">
                 <div id="pickerDisplay" class="text-amber-400 font-bold text-[10px] mb-auto italic h-4 overflow-hidden">等待結果...</div>
                 <div class="flex gap-1 mt-2">
@@ -165,6 +177,7 @@
         // 數據狀態
         let isDuelModeActive = false; 
         const DUEL_THRESHOLD = 30; // 拉鋸觸發門檻
+        let lastDiceValue = 0;
         
         let specialGroups = [
             { id: 'A', name: '學霸聯盟', score: 0, icon: '🦸', color: 'text-red-500', barColor: 'bg-red-500', members: '名單A' },
@@ -255,7 +268,8 @@
                 return `
                     <div class="bg-white border-l-4 ${g.barColor.replace('bg-','border-')} rounded-lg shadow-sm px-4 py-1.5 flex flex-col justify-center flex-1 relative min-h-[45px]">
                         <div class="flex items-center justify-between z-30 gap-2 relative">
-                            <div class="w-12 font-bold text-slate-500 text-[10px] leading-tight shrink-0">${g.name}</div>
+                            <!-- 組名變大 -->
+                            <div class="w-20 font-black text-slate-700 text-lg leading-tight shrink-0">${g.name}</div>
                             <div class="text-3xl font-black text-slate-800 tabular-nums flex-1 text-center">${g.score}</div>
                             <div class="flex gap-1">
                                 <button onclick="changeRegularScore(${g.id}, 2)" class="btn-touch bg-amber-500 text-white w-10 h-8 rounded-lg font-bold text-sm">+2</button>
@@ -328,7 +342,7 @@
                 result.innerText = current;
                 if(i++ > 15) { 
                     clearInterval(itv); 
-                    pickerText.innerText = `${current}`; // 移除「最新結果：」
+                    pickerText.innerText = `${current}`;
                     confetti({ particleCount: 100, spread: 70, origin: { y: 0.5 }, zIndex: 1000 }); 
                 }
             }, 80);
@@ -338,10 +352,16 @@
             let i = 0;
             const display = document.getElementById('diceDisplay');
             const itv = setInterval(() => {
-                const val = Math.floor(Math.random() * 6) + 1;
-                display.innerText = `🎲 點數：${val}`;
+                lastDiceValue = Math.floor(Math.random() * 6) + 1;
+                display.innerText = `🎲 ${lastDiceValue}`;
                 if(i++ > 12) clearInterval(itv);
             }, 60);
+        }
+
+        function diceAddOne() {
+            lastDiceValue++;
+            document.getElementById('diceDisplay').innerText = `🎲 ${lastDiceValue}`;
+            playSound(true);
         }
 
         let timerSeconds = 0, timerInterval = null;
@@ -377,7 +397,7 @@
                 specialGroups[0].score = 0; specialGroups[1].score = 0; 
                 isDuelModeActive = false; 
                 regularGroups.forEach(g => g.score = 0); 
-                document.getElementById('diceDisplay').innerText = `🎲 等待...`;
+                document.getElementById('diceDisplay').innerText = `🎲 ?`;
                 document.getElementById('pickerDisplay').innerText = `等待結果...`;
                 render(); 
             } 
