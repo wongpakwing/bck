@@ -8,8 +8,8 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; touch-action: manipulation; }
-        #special-zone { height: 210px; }
-        #regular-zone { height: calc(100vh - 450px); overflow-y: auto; }
+        #special-zone { height: 230px; }
+        #regular-zone { height: calc(100vh - 460px); overflow-y: auto; }
         .btn-touch:active { transform: scale(0.92); }
         .track-bg {
             background-image: repeating-linear-gradient(90deg, transparent, transparent 19%, rgba(0,0,0,0.05) 20%);
@@ -18,7 +18,7 @@
         .progress-container {
             position: absolute;
             bottom: 0; left: 0; right: 0;
-            height: 8px; background: rgba(226, 232, 240, 0.5);
+            height: 10px; background: rgba(226, 232, 240, 0.5);
         }
         .progress-bar {
             height: 100%; transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -26,7 +26,7 @@
         }
         .runner-icon {
             position: absolute; right: 0; top: 50%;
-            transform: translate(50%, -60%); font-size: 24px;
+            transform: translate(50%, -60%); font-size: 28px;
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .special-card {
@@ -36,11 +36,11 @@
         .member-tag {
             background: rgba(255, 255, 255, 0.6);
             border: 1px solid rgba(0, 0, 0, 0.05);
-            padding: 1px 4px;
+            padding: 2px 6px;
             border-radius: 4px;
-            font-size: 10px;
+            font-size: 11px;
             display: inline-block;
-            margin: 1px;
+            margin: 2px;
         }
     </style>
 </head>
@@ -80,7 +80,7 @@
                 <div class="flex gap-1">
                     <button onclick="startPick('student')" class="btn-touch bg-amber-500 text-white px-2 py-1 rounded text-[10px] font-bold">抽學生</button>
                     <button onclick="startPick('reward')" class="btn-touch bg-purple-500 text-white px-2 py-1 rounded text-[10px] font-bold">抽獎懲</button>
-                    <button onclick="rollDice()" class="btn-touch bg-rose-500 text-white px-2 py-1 rounded text-[10px] font-bold">🎲+1</button>
+                    <button onclick="rollDice()" class="btn-touch bg-rose-500 text-white px-2 py-1 rounded text-[10px] font-bold">🎲 骰子+1</button>
                 </div>
             </div>
             <div class="flex-1 bg-slate-800 rounded-lg p-2 border border-slate-700 flex justify-between items-center">
@@ -89,6 +89,7 @@
                     <button onclick="addTimer(10)" class="text-white bg-slate-600 px-1.5 py-1 rounded text-[9px]">10s</button>
                     <button onclick="addTimer(30)" class="text-white bg-slate-600 px-1.5 py-1 rounded text-[9px]">30s</button>
                     <button onclick="addTimer(60)" class="text-white bg-slate-600 px-1.5 py-1 rounded text-[9px]">1m</button>
+                    <button onclick="resetTimer()" class="text-white bg-slate-700 px-2 py-1 rounded text-[9px] border border-slate-500">🔄</button>
                     <button id="timerToggle" onclick="toggleTimer()" class="bg-blue-500 text-white px-2 py-1 rounded text-[10px] font-bold">開始</button>
                 </div>
             </div>
@@ -99,8 +100,8 @@
     <div id="mainModal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl p-6 w-full max-w-xs text-center shadow-2xl">
             <h3 id="modalTitle" class="text-slate-400 text-[10px] font-bold mb-4 uppercase italic">抽籤中</h3>
-            <div id="modalContent" class="h-24 flex items-center justify-center bg-slate-50 rounded-xl border-4 border-slate-100">
-                <div id="modalResult" class="text-2xl font-black text-slate-800 px-2">...</div>
+            <div id="modalContent" class="min-h-[96px] flex items-center justify-center bg-slate-50 rounded-xl border-4 border-slate-100 p-2">
+                <div id="modalResult" class="text-2xl font-black text-slate-800 px-2 flex flex-wrap justify-center gap-2">...</div>
             </div>
             <div class="flex gap-2 mt-6">
                 <button id="rePickBtn" class="flex-1 bg-slate-200 text-slate-700 py-3 rounded-lg font-bold">再抽一次</button>
@@ -131,7 +132,7 @@
         let students = ["學生1", "學生2", "學生3", "學生4", "學生5"];
         let rewards = ["加 1 分", "加 2 分", "減 1 分", "免死金牌", "表演節目", "小禮物", "坐前排"];
         let scoreGoal = 20;
-        let lastPickMode = 'student';
+        let diceCount = 1;
 
         function playSound(isPlus) {
             const sound = document.getElementById(isPlus ? 'plusSound' : 'minusSound');
@@ -144,27 +145,27 @@
             specialContainer.innerHTML = specialGroups.map(g => {
                 const isWinner = g.score === 0;
                 return `
-                    <div class="special-card ${g.color} rounded-xl p-3 flex flex-col justify-between relative shadow-lg overflow-hidden">
+                    <div class="special-card ${g.color} rounded-xl p-4 flex flex-col justify-between relative shadow-lg overflow-hidden">
                         <div class="flex justify-between items-start">
                             <div class="flex flex-col">
-                                <span onclick="renameGroup('${g.id}', true)" class="text-[10px] font-black text-slate-500 border-b border-dotted cursor-pointer">${g.name}</span>
-                                <div onclick="editGroupMembers('${g.id}')" class="mt-1 flex flex-wrap max-h-[30px] overflow-y-auto cursor-pointer" title="編輯隊員">
+                                <span onclick="renameGroup('${g.id}', true)" class="text-[11px] font-black text-slate-500 border-b border-dotted cursor-pointer uppercase tracking-wider">${g.name}</span>
+                                <div onclick="editGroupMembers('${g.id}')" class="mt-1 flex flex-wrap max-h-[40px] overflow-y-auto cursor-pointer" title="編輯隊員">
                                     ${g.members.length > 0 ? 
                                         g.members.map(m => `<span class="member-tag">${m}</span>`).join('') : 
-                                        '<span class="text-[8px] text-slate-400">點擊新增隊員</span>'}
+                                        '<span class="text-[9px] text-slate-400">點擊新增隊員</span>'}
                                 </div>
                             </div>
-                            <span class="text-xl">${isWinner ? '🏆' : g.icon}</span>
+                            <span class="text-2xl">${isWinner ? '🏆' : g.icon}</span>
                         </div>
-                        <div class="text-5xl font-black text-center my-1 tabular-nums ${isWinner ? 'text-emerald-500 scale-110' : 'text-slate-800'} transition-all">
+                        <div class="text-6xl font-black text-center my-1 tabular-nums ${isWinner ? 'text-emerald-500 scale-110' : 'text-slate-800'} transition-all">
                             ${g.score}
                         </div>
-                        <div class="flex gap-1 z-10">
+                        <div class="flex gap-2 z-10">
                             ${g.id === 'A' ? 
-                                `<button onclick="changeSpecialScore('A', 5)" class="flex-1 bg-rose-500 text-white font-bold py-2 rounded-lg text-lg">+5</button>
-                                 <button onclick="changeSpecialScore('A', 1)" class="flex-1 bg-rose-400 text-white font-bold py-2 rounded-lg text-lg">+1</button>` :
-                                `<button onclick="changeSpecialScore('B', -5)" class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg text-lg">-5</button>
-                                 <button onclick="changeSpecialScore('B', -1)" class="flex-1 bg-blue-400 text-white font-bold py-2 rounded-lg text-lg">-1</button>`
+                                `<button onclick="changeSpecialScore('A', 5)" class="flex-1 bg-rose-500 text-white font-bold py-3 rounded-lg text-xl">+5</button>
+                                 <button onclick="changeSpecialScore('A', 1)" class="flex-1 bg-rose-400 text-white font-bold py-3 rounded-lg text-xl">+1</button>` :
+                                `<button onclick="changeSpecialScore('B', -5)" class="flex-1 bg-blue-500 text-white font-bold py-3 rounded-lg text-xl">-5</button>
+                                 <button onclick="changeSpecialScore('B', -1)" class="flex-1 bg-blue-400 text-white font-bold py-3 rounded-lg text-xl">-1</button>`
                             }
                         </div>
                     </div>
@@ -176,14 +177,14 @@
                 const progress = Math.min(100, (g.score / scoreGoal) * 100);
                 const isWinner = g.score >= scoreGoal;
                 return `
-                    <div class="bg-white border-l-4 ${g.color} rounded shadow-sm px-4 flex flex-col justify-center relative overflow-visible">
+                    <div class="bg-white border-l-8 ${g.color} rounded-lg shadow-sm px-6 flex flex-col justify-center relative overflow-visible">
                         <div class="absolute inset-0 track-bg opacity-10 pointer-events-none"></div>
                         <div class="flex items-center justify-between z-10">
-                            <div onclick="renameGroup(${g.id}, false)" class="w-24 shrink-0 font-black text-slate-600 text-sm border-b border-dotted cursor-pointer">${g.name}</div>
-                            <div class="text-4xl font-black text-slate-800 tabular-nums flex-1 text-center">${g.score}</div>
-                            <div class="flex gap-1 shrink-0">
-                                <button onclick="changeRegularScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-9 h-9 rounded-lg font-black text-lg">+</button>
-                                <button onclick="changeRegularScore(${g.id}, -1)" class="btn-touch bg-slate-200 text-slate-500 w-9 h-9 rounded-lg font-black text-lg">-</button>
+                            <div onclick="renameGroup(${g.id}, false)" class="w-32 shrink-0 font-black text-slate-600 text-base border-b border-dotted cursor-pointer">${g.name}</div>
+                            <div class="text-5xl font-black text-slate-800 tabular-nums flex-1 text-center">${g.score}</div>
+                            <div class="flex gap-2 shrink-0">
+                                <button onclick="changeRegularScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-12 h-12 rounded-xl font-black text-2xl shadow-sm">+</button>
+                                <button onclick="changeRegularScore(${g.id}, -1)" class="btn-touch bg-slate-200 text-slate-500 w-12 h-12 rounded-xl font-black text-2xl shadow-sm">-</button>
                             </div>
                         </div>
                         <div class="progress-container">
@@ -254,24 +255,25 @@
         }
 
         function startPick(mode) {
-            lastPickMode = mode;
             const modal = document.getElementById('mainModal');
             const res = document.getElementById('modalResult');
             const title = document.getElementById('modalTitle');
             const rePickBtn = document.getElementById('rePickBtn');
             const pool = mode === 'student' ? students : rewards;
             
+            diceCount = 1; // 重置骰子數量
             title.innerText = mode === 'student' ? '抽籤中...' : '獎懲抽取中...';
             modal.classList.remove('hidden');
+            rePickBtn.innerText = "再抽一次";
             rePickBtn.onclick = () => startPick(mode);
             
             let i = 0;
             const itv = setInterval(() => {
-                res.innerText = pool[Math.floor(Math.random()*pool.length)];
+                res.innerHTML = `<span>${pool[Math.floor(Math.random()*pool.length)]}</span>`;
                 if(i++ > 15) { 
                     clearInterval(itv); 
                     const final = pool[Math.floor(Math.random()*pool.length)];
-                    res.innerText = final;
+                    res.innerHTML = `<span>${final}</span>`;
                     if(mode === 'student') document.getElementById('pickerDisplay').innerText = final;
                     confetti({ particleCount: 80, spread: 50 });
                 }
@@ -282,18 +284,37 @@
             const modal = document.getElementById('mainModal');
             const res = document.getElementById('modalResult');
             const rePickBtn = document.getElementById('rePickBtn');
-            document.getElementById('modalTitle').innerText = '骰子投擲 (點數+1)...';
+            document.getElementById('modalTitle').innerText = `擲骰子 (${diceCount} 粒)...`;
             modal.classList.remove('hidden');
-            rePickBtn.onclick = rollDice;
+            
+            rePickBtn.innerText = "骰子 +1";
+            rePickBtn.onclick = () => { diceCount++; rollDice(); };
 
             let i = 0;
+            const diceIcons = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
             const itv = setInterval(() => {
-                const tempVal = Math.floor(Math.random()*6)+1;
-                res.innerText = tempVal + 1;
+                let tempResults = [];
+                for(let d=0; d<diceCount; d++) {
+                    tempResults.push(diceIcons[Math.floor(Math.random()*6)]);
+                }
+                res.innerHTML = tempResults.map(icon => `<span class="text-4xl">${icon}</span>`).join('');
+                
                 if(i++ > 10) { 
                     clearInterval(itv); 
-                    const finalVal = Math.floor(Math.random()*6)+1;
-                    res.innerHTML = `<span class="text-slate-400 text-sm">🎲${finalVal} ➜</span> ${finalVal + 1}`; 
+                    let finalResults = [];
+                    let sum = 0;
+                    for(let d=0; d<diceCount; d++) {
+                        const val = Math.floor(Math.random()*6)+1;
+                        sum += val;
+                        finalResults.push(`<div class="flex flex-col items-center bg-white p-2 rounded shadow-inner border border-slate-200">
+                            <span class="text-4xl">${diceIcons[val-1]}</span>
+                            <span class="text-xs text-slate-400 font-bold">${val}</span>
+                        </div>`);
+                    }
+                    res.innerHTML = `<div class="flex flex-wrap justify-center gap-3">${finalResults.join('')}</div>`;
+                    if (diceCount > 1) {
+                        res.innerHTML += `<div class="w-full mt-2 text-sm font-bold text-blue-600">總和: ${sum}</div>`;
+                    }
                 }
             }, 100);
         }
@@ -303,6 +324,13 @@
         let timerSeconds = 0;
         let timerInterval = null;
         function addTimer(s) { timerSeconds += s; updateTimer(); }
+        function resetTimer() { 
+            clearInterval(timerInterval); 
+            timerInterval = null; 
+            timerSeconds = 0; 
+            updateTimer(); 
+            document.getElementById('timerToggle').innerText="開始";
+        }
         function updateTimer() {
             const m = Math.floor(timerSeconds/60).toString().padStart(2,'0');
             const s = (timerSeconds%60).toString().padStart(2,'0');
@@ -311,6 +339,7 @@
         function toggleTimer() {
             if(timerInterval) { clearInterval(timerInterval); timerInterval = null; document.getElementById('timerToggle').innerText="繼續"; }
             else {
+                if (timerSeconds <= 0) return;
                 timerInterval = setInterval(() => {
                     if(timerSeconds > 0) { timerSeconds--; updateTimer(); }
                     else { 
