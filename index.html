@@ -48,12 +48,10 @@
     <header class="bg-white/90 backdrop-blur rounded-t-xl px-4 py-2 flex justify-between items-center border-b border-slate-300 shadow-sm shrink-0">
         <div class="flex flex-col">
             <h1 class="font-bold text-slate-800 text-sm">課室雙賽制計分榜</h1>
-            <div class="flex gap-2">
-                <span class="text-[9px] bg-amber-100 text-amber-700 px-1.5 rounded">置頂：歸零挑戰</span>
-                <span class="text-[9px] bg-blue-100 text-blue-700 px-1.5 rounded">下方：常規賽 (20分)</span>
-            </div>
+            <div id="goalIndicator" class="text-[10px] text-blue-600 font-medium">常規賽目標: 20分</div>
         </div>
         <div class="flex gap-2">
+            <button onclick="setGoal()" class="bg-blue-50 text-blue-600 px-2 py-1 rounded text-[10px] border border-blue-200 font-bold">設定目標</button>
             <button onclick="editStudents()" class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] border border-slate-300">總名單</button>
             <button onclick="editRewards()" class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] border border-slate-300">獎懲清單</button>
             <button onclick="addOneToAllRegular()" class="bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-sm">常規+1</button>
@@ -61,7 +59,7 @@
         </div>
     </header>
 
-    <!-- 置頂特種競賽區 (縮小高度並加入進度條) -->
+    <!-- 置頂特種競賽區 -->
     <div id="special-zone" class="grid grid-cols-2 gap-2 p-2 bg-slate-800 border-x border-slate-300">
         <!-- JS Render -->
     </div>
@@ -102,14 +100,14 @@
                     <button onclick="addTimer(10)" class="text-white bg-slate-600 px-1 py-1 rounded text-[9px] flex-1">10s</button>
                     <button onclick="addTimer(30)" class="text-white bg-slate-600 px-1 py-1 rounded text-[9px] flex-1">30s</button>
                     <button onclick="addTimer(60)" class="text-white bg-slate-600 px-1 py-1 rounded text-[9px] flex-1">1m</button>
-                    <button onclick="resetTimer()" class="text-white bg-slate-700 px-2 py-1 rounded text-[9px] border border-slate-500">🔄</button>
+                    <button onclick="resetTimer()" class="bg-red-600 text-white px-2 py-1 rounded text-[9px] font-bold">重設</button>
                     <button id="timerToggle" onclick="toggleTimer()" class="bg-blue-500 text-white px-3 py-1 rounded text-[10px] font-bold">開始</button>
                 </div>
             </div>
         </div>
     </footer>
 
-    <!-- 僅抽籤用的 Modal -->
+    <!-- 抽籤 Modal -->
     <div id="mainModal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl p-6 w-full max-w-xs text-center shadow-2xl">
             <h3 id="modalTitle" class="text-slate-400 text-[10px] font-bold mb-4 uppercase italic">抽籤中</h3>
@@ -155,7 +153,9 @@
             const specialContainer = document.getElementById('special-zone');
             specialContainer.innerHTML = specialGroups.map(g => {
                 const isWinner = g.score === 0;
-                // 計算進度：朝 0 靠近。如果是 A (-50 -> 0)，進度是 (score - start) / (0 - start)
+                // 修正公式：當分數趨近 0 時進度增加
+                // 進度 = (當前分數 - 初始分數) / (目標分數 - 初始分數)
+                // 目標分數為 0
                 const progress = Math.min(100, Math.max(0, ((g.score - g.startScore) / (0 - g.startScore)) * 100));
                 
                 return `
@@ -210,6 +210,15 @@
             }).join('');
         }
 
+        function setGoal() {
+            const newGoal = prompt('請輸入常規賽達標分數：', scoreGoal);
+            if (newGoal && !isNaN(newGoal)) {
+                scoreGoal = parseInt(newGoal);
+                document.getElementById('goalIndicator').innerText = `常規賽目標: ${scoreGoal}分`;
+                render();
+            }
+        }
+
         function changeSpecialScore(id, delta) {
             const g = specialGroups.find(x => x.id === id);
             const old = g.score;
@@ -236,7 +245,6 @@
             
             title.innerText = mode === 'student' ? '抽籤中...' : '獎懲抽取中...';
             modal.classList.remove('hidden');
-            rePickBtn.innerText = "再抽一次";
             rePickBtn.onclick = () => startPick(mode);
             
             let i = 0;
@@ -252,7 +260,6 @@
             }, 80);
         }
 
-        // 直接在介面顯示骰子，不再彈窗
         function rollDiceDirect() {
             const area = document.getElementById('diceResultArea');
             const iconsSpan = document.getElementById('diceIcons');
@@ -289,7 +296,7 @@
         function addDiceCount() {
             diceCount++;
             document.getElementById('pickerDisplay').innerText = `骰子數量已設為: ${diceCount}`;
-            rollDiceDirect(); // 設定後直接擲一次
+            rollDiceDirect();
         }
 
         function closeModal() { document.getElementById('mainModal').classList.add('hidden'); }
@@ -334,7 +341,7 @@
             if (newName) { group.name = newName; render(); }
         }
         function addOneToAllRegular() { regularGroups.forEach(g => g.score++); render(); playSound(true); }
-        function resetAll() { if(confirm('重置？')) { specialGroups[0].score = -50; specialGroups[1].score = 50; regularGroups.forEach(g => g.score = 0); render(); } }
+        function resetAll() { if(confirm('重置分數？')) { specialGroups[0].score = -50; specialGroups[1].score = 50; regularGroups.forEach(g => g.score = 0); render(); } }
 
         window.onload = render;
     </script>
