@@ -73,6 +73,14 @@
             font-size: 12px;
             border: 2px solid #1e293b;
         }
+
+        /* 修正 Emoji 覆蓋問題 */
+        .runner-emoji {
+            z-index: 20;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
+            pointer-events: none;
+            transition: left 0.4s ease-out;
+        }
     </style>
 </head>
 <body class="bg-slate-200 overflow-hidden px-2 pt-2 h-screen flex flex-col text-slate-800">
@@ -101,20 +109,27 @@
     <!-- 底部控制台 -->
     <footer class="bg-slate-900 rounded-b-xl p-2 flex flex-col gap-2 shrink-0">
         <div class="flex gap-2">
-            <div class="flex-[1.5] bg-slate-800 rounded-lg p-2 border border-slate-700">
+            <!-- 左側：抽籤區 -->
+            <div class="flex-1 bg-slate-800 rounded-lg p-2 border border-slate-700">
                 <div id="pickerDisplay" class="text-amber-400 font-bold text-[10px] mb-1 italic">等待抽籤...</div>
                 <div class="flex gap-1">
                     <button onclick="startPick('student')" class="btn-touch flex-1 bg-amber-500 text-white py-1.5 rounded text-[11px] font-bold">抽學生</button>
                     <button onclick="startPick('reward')" class="btn-touch flex-1 bg-purple-500 text-white py-1.5 rounded text-[11px] font-bold">抽獎懲</button>
-                    <button onclick="rollDiceDirect()" class="btn-touch flex-1 bg-rose-500 text-white py-1.5 rounded text-[11px] font-bold">🎲 擲骰</button>
                 </div>
             </div>
-            <div class="flex-1 bg-slate-800 rounded-lg p-2 border border-slate-700">
+            
+            <!-- 右側：功能區 (擲骰與計時) -->
+            <div class="flex-[1.5] bg-slate-800 rounded-lg p-2 border border-slate-700">
                 <div class="flex justify-between items-center mb-1">
                     <div id="timerDisplay" class="font-mono text-lg text-white font-black">00:00</div>
-                    <button id="timerToggle" onclick="toggleTimer()" class="bg-blue-500 text-white px-3 py-1 rounded text-[10px] font-bold">開始</button>
+                    <div class="flex gap-1">
+                        <button onclick="rollDiceDirect()" class="btn-touch bg-rose-500 text-white px-3 py-1 rounded text-[10px] font-bold">🎲 擲骰</button>
+                        <button id="timerToggle" onclick="toggleTimer()" class="bg-blue-500 text-white px-3 py-1 rounded text-[10px] font-bold">開始</button>
+                    </div>
                 </div>
                 <div class="flex gap-1">
+                    <button onclick="addTimer(10)" class="bg-slate-600 text-white px-2 py-1 rounded text-[10px] flex-1">10s</button>
+                    <button onclick="addTimer(30)" class="bg-slate-600 text-white px-2 py-1 rounded text-[10px] flex-1">30s</button>
                     <button onclick="addTimer(60)" class="bg-slate-600 text-white px-2 py-1 rounded text-[10px] flex-1">1m</button>
                     <button onclick="resetTimer()" class="bg-slate-700 text-white px-2 py-1 rounded text-[10px]">重置</button>
                 </div>
@@ -139,8 +154,8 @@
     <script>
         // 數據狀態
         let specialGroups = [
-            { id: 'A', name: '學霸聯盟', score: 0, icon: '🦸', color: 'text-red-500', barColor: 'bg-red-500', members: '名單A' },
-            { id: 'B', name: '壞蛋聯盟', score: 0, icon: '😈', color: 'text-blue-500', barColor: 'bg-blue-500', members: '名單B' }
+            { id: 'A', name: '學霸聯盟', score: -50, icon: '🦸', color: 'text-red-500', barColor: 'bg-red-500', members: '名單A' },
+            { id: 'B', name: '壞蛋聯盟', score: 50, icon: '😈', color: 'text-blue-500', barColor: 'bg-blue-500', members: '名單B' }
         ];
 
         let regularGroups = [
@@ -166,10 +181,9 @@
             // 1. 渲染頂部合倂區
             const specialContainer = document.getElementById('special-zone');
             
-            // 進度計算：中心點為 0 分，範圍 0 到 100 方便演示。
-            let total = Math.max(100, teamA.score + teamB.score);
-            let leftProgress = (teamA.score / 100) * 100;
-            let rightProgress = (teamB.score / 100) * 100;
+            // 進度計算：以絕對值 100 作為參考範圍
+            let leftProgress = Math.max(0, Math.min(100, (teamA.score + 100) / 2)); 
+            let rightProgress = Math.max(0, Math.min(100, (teamB.score + 100) / 2));
 
             specialContainer.className = `p-3 bg-slate-900 border-x border-slate-300 flex flex-col justify-center transition-colors duration-500 ${isDuel ? 'duel-pulse' : ''}`;
             specialContainer.innerHTML = `
@@ -196,8 +210,8 @@
                 </div>
 
                 <div class="duel-track mb-3">
-                    <div class="progress-left" style="width: ${Math.min(100, leftProgress)}%"></div>
-                    <div class="progress-right" style="width: ${Math.min(100, rightProgress)}%"></div>
+                    <div class="progress-left" style="width: ${leftProgress}%"></div>
+                    <div class="progress-right" style="width: ${100 - rightProgress}%"></div>
                     <div class="vs-badge">VS</div>
                 </div>
 
@@ -221,7 +235,7 @@
                 const progress = Math.min(100, (g.score / scoreGoal) * 100);
                 return `
                     <div class="bg-white border-l-4 ${g.barColor.replace('bg-','border-')} rounded-lg shadow-sm px-4 py-2 flex flex-col justify-center flex-1 relative min-h-[50px]">
-                        <div class="flex items-center justify-between z-10 gap-2">
+                        <div class="flex items-center justify-between z-30 gap-2 relative">
                             <div class="w-12 font-bold text-slate-500 text-[10px] leading-tight shrink-0">${g.name}</div>
                             <div class="text-3xl font-black text-slate-800 tabular-nums flex-1 text-center">${g.score}</div>
                             <div class="flex gap-1">
@@ -230,10 +244,13 @@
                                 <button onclick="changeRegularScore(${g.id}, -1)" class="btn-touch bg-slate-300 text-slate-600 w-10 h-8 rounded-lg font-bold text-sm">-1</button>
                             </div>
                         </div>
-                        <div class="progress-track mt-1 h-1.5 relative overflow-visible">
-                            <div class="progress-fill ${g.barColor} opacity-30" style="width: ${progress}%"></div>
-                            <div class="runner-emoji" style="position: absolute; left: ${progress}%; font-size: 16px; transform: translateX(-50%)">
-                                ${g.score >= scoreGoal ? '🏆' : g.icon}
+                        <!-- 進度條軌道 -->
+                        <div class="progress-track mt-1 h-2 bg-slate-100 rounded-full relative overflow-visible z-10">
+                            <!-- 進度填充 -->
+                            <div class="progress-fill ${g.barColor} h-full rounded-full transition-all duration-500 opacity-40" style="width: ${progress}%"></div>
+                            <!-- Runner Emoji -->
+                            <div class="runner-emoji absolute top-1/2 -translate-y-1/2" style="left: ${progress}%; margin-left: -8px;">
+                                <span style="font-size: 16px;">${g.score >= scoreGoal ? '🏆' : g.icon}</span>
                             </div>
                         </div>
                     </div>
@@ -263,7 +280,7 @@
             
             render();
             playSound(delta > 0);
-            if (teamA.score >= 100 || teamB.score >= 100) confetti({ particleCount: 150, spread: 100 });
+            if (teamA.score >= 150 || teamB.score >= 150) confetti({ particleCount: 150, spread: 100 });
         }
 
         function changeRegularScore(id, delta) {
@@ -312,17 +329,42 @@
 
         let timerSeconds = 0, timerInterval = null;
         function addTimer(s) { timerSeconds += s; updateTimer(); }
-        function resetTimer() { timerSeconds = 0; updateTimer(); clearInterval(timerInterval); timerInterval = null; }
+        function resetTimer() { timerSeconds = 0; updateTimer(); clearInterval(timerInterval); timerInterval = null; document.getElementById('timerToggle').innerText = '開始'; }
         function updateTimer() {
             document.getElementById('timerDisplay').innerText = 
                 `${Math.floor(timerSeconds/60).toString().padStart(2,'0')}:${(timerSeconds%60).toString().padStart(2,'0')}`;
         }
         function toggleTimer() {
-            if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-            else { timerInterval = setInterval(() => { if(timerSeconds > 0) { timerSeconds--; updateTimer(); } }, 1000); }
+            if(timerInterval) { 
+                clearInterval(timerInterval); 
+                timerInterval = null; 
+                document.getElementById('timerToggle').innerText = '開始';
+            }
+            else { 
+                if (timerSeconds <= 0) return;
+                document.getElementById('timerToggle').innerText = '暫停';
+                timerInterval = setInterval(() => { 
+                    if(timerSeconds > 0) { 
+                        timerSeconds--; 
+                        updateTimer(); 
+                    } else {
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                        document.getElementById('timerToggle').innerText = '開始';
+                        playSound(false); // 結束音效
+                    }
+                }, 1000); 
+            }
         }
 
-        function resetAll() { if(confirm('重置所有數據？')) { specialGroups.forEach(g => g.score = 0); regularGroups.forEach(g => g.score = 0); render(); } }
+        function resetAll() { 
+            if(confirm('重置所有數據？')) { 
+                specialGroups[0].score = -50; 
+                specialGroups[1].score = 50; 
+                regularGroups.forEach(g => g.score = 0); 
+                render(); 
+            } 
+        }
         function addOneToAllRegular() { regularGroups.forEach(g => g.score++); render(); playSound(true); }
         function closeModal() { document.getElementById('mainModal').classList.add('hidden'); }
 
