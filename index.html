@@ -56,12 +56,13 @@
         </div>
         <div class="flex gap-2">
             <button onclick="editStudents()" class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] border border-slate-300">總名單</button>
+            <button onclick="editRewards()" class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] border border-slate-300">獎懲清單</button>
             <button onclick="addOneToAllRegular()" class="bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-sm">常規+1</button>
-            <button onclick="resetAll()" class="bg-slate-400 text-white px-2 py-1 rounded-full text-[10px]">重置</button>
+            <button onclick="resetAll()" class="bg-slate-400 text-white px-2 py-1 rounded-full text-[10px]">重置分數</button>
         </div>
     </header>
 
-    <!-- 置頂特種競賽區 (A組, B組) -->
+    <!-- 置頂特種競賽區 (學霸聯盟, 壞蛋聯盟) -->
     <div id="special-zone" class="grid grid-cols-2 gap-2 p-2 bg-slate-800 border-x border-slate-300">
         <!-- JS Render -->
     </div>
@@ -79,7 +80,7 @@
                 <div class="flex gap-1">
                     <button onclick="startPick('student')" class="btn-touch bg-amber-500 text-white px-2 py-1 rounded text-[10px] font-bold">抽學生</button>
                     <button onclick="startPick('reward')" class="btn-touch bg-purple-500 text-white px-2 py-1 rounded text-[10px] font-bold">抽獎懲</button>
-                    <button onclick="rollDice()" class="btn-touch bg-rose-500 text-white px-2 py-1 rounded text-[10px] font-bold">🎲</button>
+                    <button onclick="rollDice()" class="btn-touch bg-rose-500 text-white px-2 py-1 rounded text-[10px] font-bold">🎲+1</button>
                 </div>
             </div>
             <div class="flex-1 bg-slate-800 rounded-lg p-2 border border-slate-700 flex justify-between items-center">
@@ -101,7 +102,10 @@
             <div id="modalContent" class="h-24 flex items-center justify-center bg-slate-50 rounded-xl border-4 border-slate-100">
                 <div id="modalResult" class="text-2xl font-black text-slate-800 px-2">...</div>
             </div>
-            <button onclick="closeModal()" class="w-full bg-slate-800 text-white py-3 rounded-lg font-bold mt-6">確認</button>
+            <div class="flex gap-2 mt-6">
+                <button id="rePickBtn" class="flex-1 bg-slate-200 text-slate-700 py-3 rounded-lg font-bold">再抽一次</button>
+                <button onclick="closeModal()" class="flex-1 bg-slate-800 text-white py-3 rounded-lg font-bold">確認</button>
+            </div>
         </div>
     </div>
 
@@ -112,8 +116,8 @@
     <script>
         // 1. 數據結構
         let specialGroups = [
-            { id: 'A', name: 'A組', score: -50, color: 'border-red-500', icon: '🎯', members: ['學生A1', '學生A2'] },
-            { id: 'B', name: 'B組', score: 50, color: 'border-blue-500', icon: '🏹', members: ['學生B1', '學生B2'] }
+            { id: 'A', name: '學霸聯盟', score: -50, color: 'border-red-500', icon: '🦸', members: ['學生A1', '學生A2'] },
+            { id: 'B', name: '壞蛋聯盟', score: 50, color: 'border-blue-500', icon: '😈', members: ['學生B1', '學生B2'] }
         ];
 
         let regularGroups = [
@@ -127,6 +131,7 @@
         let students = ["學生1", "學生2", "學生3", "學生4", "學生5"];
         let rewards = ["加 1 分", "加 2 分", "減 1 分", "免死金牌", "表演節目", "小禮物", "坐前排"];
         let scoreGoal = 20;
+        let lastPickMode = 'student';
 
         function playSound(isPlus) {
             const sound = document.getElementById(isPlus ? 'plusSound' : 'minusSound');
@@ -208,7 +213,12 @@
 
         function editStudents() {
             const list = prompt('請輸入總名單姓名（用逗號或空格隔開）：', students.join(', '));
-            if (list) { students = list.split(/[ ,，]+/).filter(n => n.trim()); }
+            if (list !== null) { students = list.split(/[ ,，]+/).filter(n => n.trim()); }
+        }
+
+        function editRewards() {
+            const list = prompt('請輸入獎懲清單（用逗號或空格隔開）：', rewards.join(', '));
+            if (list !== null) { rewards = list.split(/[ ,，]+/).filter(n => n.trim()); }
         }
 
         function changeSpecialScore(id, delta) {
@@ -236,7 +246,7 @@
         }
 
         function resetAll() {
-            if(confirm('重置所有數據？')) {
+            if(confirm('重置所有分數？')) {
                 specialGroups[0].score = -50; specialGroups[1].score = 50;
                 regularGroups.forEach(g => g.score = 0);
                 render();
@@ -244,13 +254,16 @@
         }
 
         function startPick(mode) {
+            lastPickMode = mode;
             const modal = document.getElementById('mainModal');
             const res = document.getElementById('modalResult');
             const title = document.getElementById('modalTitle');
+            const rePickBtn = document.getElementById('rePickBtn');
             const pool = mode === 'student' ? students : rewards;
             
             title.innerText = mode === 'student' ? '抽籤中...' : '獎懲抽取中...';
             modal.classList.remove('hidden');
+            rePickBtn.onclick = () => startPick(mode);
             
             let i = 0;
             const itv = setInterval(() => {
@@ -268,12 +281,20 @@
         function rollDice() {
             const modal = document.getElementById('mainModal');
             const res = document.getElementById('modalResult');
-            document.getElementById('modalTitle').innerText = '骰子投擲...';
+            const rePickBtn = document.getElementById('rePickBtn');
+            document.getElementById('modalTitle').innerText = '骰子投擲 (點數+1)...';
             modal.classList.remove('hidden');
+            rePickBtn.onclick = rollDice;
+
             let i = 0;
             const itv = setInterval(() => {
-                res.innerText = Math.floor(Math.random()*6)+1;
-                if(i++ > 10) { clearInterval(itv); res.innerText = Math.floor(Math.random()*6)+1; }
+                const tempVal = Math.floor(Math.random()*6)+1;
+                res.innerText = tempVal + 1;
+                if(i++ > 10) { 
+                    clearInterval(itv); 
+                    const finalVal = Math.floor(Math.random()*6)+1;
+                    res.innerHTML = `<span class="text-slate-400 text-sm">🎲${finalVal} ➜</span> ${finalVal + 1}`; 
+                }
             }, 100);
         }
 
