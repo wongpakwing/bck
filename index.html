@@ -1,19 +1,19 @@
+```html
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課室計分榜 - 雲端同步</title>
+    <title>課室計分榜 - 實時同步版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; touch-action: manipulation; }
-        /* 確保 7 組平均分配高度，不產生捲軸 */
         #scoreboard { 
             grid-template-rows: repeat(7, 1fr); 
             height: calc(100vh - 120px); 
             min-height: 500px;
         }
-        .group-card { transition: all 0.5s ease; }
+        .group-card { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
         .btn-touch:active { transform: scale(0.9); }
         
         @keyframes save-flash {
@@ -24,13 +24,24 @@
         .save-indicator {
             animation: save-flash 1.5s ease-in-out forwards;
         }
+
+        /* 數字跳動動畫 */
+        .score-bump { animation: score-pop 0.3s ease-out; }
+        @keyframes score-pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); color: #10b981; }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body class="bg-slate-50 overflow-hidden p-2">
     <header class="bg-white rounded-xl shadow-sm px-3 py-2 mb-2 flex justify-between items-center relative">
-        <div>
-            <h1 class="font-bold text-slate-800 text-sm">雲端同步計分榜</h1>
-            <div id="saveStatus" class="text-[10px] text-blue-600 font-bold opacity-0 absolute">● 雲端已同步</div>
+        <div class="flex items-center gap-3">
+            <div>
+                <h1 class="font-bold text-slate-800 text-sm">實時同步計分榜</h1>
+                <div id="syncStatus" class="text-[9px] text-blue-500 font-medium">同步中...</div>
+            </div>
+            <div id="saveStatus" class="text-[10px] text-blue-600 font-bold opacity-0">● 雲端已更新</div>
         </div>
         <div class="flex gap-2">
             <button onclick="addOneToAll()" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1 rounded-lg text-xs font-bold transition">全體 +1</button>
@@ -40,13 +51,10 @@
 
     <div id="scoreboard" class="grid grid-cols-1 gap-1"></div>
 
-    <!-- 提示音 -->
     <audio id="plusSound" src="https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"></audio>
     <audio id="minusSound" src="https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3"></audio>
 
     <script>
-        // --- 設定區 ---
-        // 使用您提供的 npoint ID
         const JSON_BIN_ID = '085cbfd3a843d7d7df1a'; 
         const API_URL = `https://api.npoint.io/${JSON_BIN_ID}`;
 
@@ -56,63 +64,63 @@
             { id: 103, name: '第三直行', score: 0, color: 'border-purple-500 bg-purple-50' },
             { id: 104, name: '第四直行', score: 0, color: 'border-orange-500 bg-orange-50' },
             { id: 105, name: '第五直行', score: 0, color: 'border-pink-500 bg-pink-50' },
-            { id: 106, name: '🦸‍♂️超人聯盟', score: -50, color: 'border-cyan-500 bg-cyan-50' }, // 預設 -50
-            { id: 107, name: '😈壞蛋聯盟', score: 50, color: 'border-indigo-500 bg-indigo-50' }  // 預設 50
+            { id: 106, name: '🦸‍♂️超人聯盟', score: -50, color: 'border-cyan-500 bg-cyan-50' },
+            { id: 107, name: '😈壞蛋聯盟', score: 50, color: 'border-indigo-500 bg-indigo-50' }
         ];
 
         let groups = [];
         let isSaving = false;
+        let lastCloudString = ""; // 用於比對雲端是否有變動
 
-        // 1. 從雲端或本地讀取資料
-        async function loadData() {
+        // 1. 從雲端抓取資料 (加入比對機制，避免無謂的重新渲染)
+        async function fetchFromCloud() {
             try {
                 const response = await fetch(API_URL);
-                if (!response.ok) throw new Error("API 回應異常");
+                if (!response.ok) throw new Error();
                 const cloudData = await response.json();
                 
-                if (Array.isArray(cloudData) && cloudData.length === 7) {
+                const cloudString = JSON.stringify(cloudData);
+                
+                // 只有當雲端資料跟本地不同時，才更新界面
+                if (cloudString !== lastCloudString && !isSaving) {
+                    console.log("偵測到雲端變動，更新界面...");
                     groups = cloudData;
-                    // 確保名稱包含 Emoji
+                    // 強制校正名稱
                     groups[5].name = '🦸‍♂️超人聯盟';
                     groups[6].name = '😈壞蛋聯盟';
-                    console.log("雲端同步成功");
-                } else {
-                    throw new Error("雲端無效資料");
+                    lastCloudString = cloudString;
+                    render();
+                    document.getElementById('syncStatus').innerText = "連線正常: " + new Date().toLocaleTimeString();
                 }
             } catch (e) {
-                console.warn("雲端讀取失敗，嘗試本地儲存:", e);
-                const saved = localStorage.getItem('classroom_scores_final_v7');
-                groups = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(defaultGroups));
-                // 強制修正名稱，以防本地舊資料沒有 Emoji
-                groups[5].name = '🦸‍♂️超人聯盟';
-                groups[6].name = '😈壞蛋聯盟';
+                document.getElementById('syncStatus').innerText = "重新連線中...";
+                console.error("同步失敗");
             }
-            render();
         }
 
         // 2. 保存資料
         async function saveData() {
             localStorage.setItem('classroom_scores_final_v7', JSON.stringify(groups));
+            lastCloudString = JSON.stringify(groups); // 防止自己存完又觸發 fetch 更新
 
-            if (isSaving) return;
             isSaving = true;
-
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST', 
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(groups)
                 });
-                
-                if (response.ok) {
-                    showSaveIndicator();
-                }
+                if (response.ok) showSaveIndicator();
             } catch (e) {
-                console.error("雲端更新失敗", e);
+                console.error("上傳失敗");
             } finally {
                 isSaving = false;
             }
         }
+
+        // --- 定時功能 ---
+        // 每 3 秒自動去雲端檢查一次
+        setInterval(fetchFromCloud, 3000);
 
         function showSaveIndicator() {
             const indicator = document.getElementById('saveStatus');
@@ -149,7 +157,6 @@
 
         window.resetScores = () => {
             if (confirm('確定要將雲端與本地所有分數重置為預設值嗎？')) {
-                // 重置回預設分數（含 Emoji 名稱）
                 groups = JSON.parse(JSON.stringify(defaultGroups));
                 render();
                 saveData();
@@ -184,7 +191,19 @@
             `).join('');
         }
 
-        window.onload = loadData;
+        window.onload = () => {
+            loadData(); // 初次載入
+            async function loadData() {
+                await fetchFromCloud();
+                if (groups.length === 0) { // 如果雲端沒資料，讀取本地
+                    const saved = localStorage.getItem('classroom_scores_final_v7');
+                    groups = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(defaultGroups));
+                    render();
+                }
+            }
+        };
     </script>
 </body>
 </html>
+
+```
