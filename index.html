@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課室計分榜 - 手動同步穩定版</title>
+    <title>課室計分榜 - 抽籤與計時版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; touch-action: manipulation; }
         #scoreboard { 
             grid-template-rows: repeat(7, 1fr); 
-            height: calc(100vh - 120px); 
-            min-height: 500px;
+            height: calc(100vh - 220px); 
+            min-height: 400px;
         }
-        .group-card { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .group-card { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         .btn-touch:active { transform: scale(0.9); }
         
         @keyframes save-flash {
@@ -20,48 +20,39 @@
             50% { opacity: 1; transform: translateY(0); }
             100% { opacity: 0; transform: translateY(-5px); }
         }
-        .save-indicator {
-            animation: save-flash 1.5s ease-in-out forwards;
-        }
+        .save-indicator { animation: save-flash 1.5s ease-in-out forwards; }
 
-        /* 同步中旋轉動畫 */
-        .sync-loading {
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
+        .sync-loading { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         
-        /* 待同步呼吸燈提醒 */
-        @keyframes pulse-sync {
-            0% { box-shadow: 0 0 0 0px rgba(59, 130, 246, 0.7); transform: scale(1); }
-            50% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); transform: scale(1.05); }
-            100% { box-shadow: 0 0 0 0px rgba(59, 130, 246, 0); transform: scale(1); }
+        @keyframes pulse-sync-red {
+            0% { box-shadow: 0 0 0 0px rgba(239, 68, 68, 0.7); transform: scale(1); }
+            50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); transform: scale(1.05); }
+            100% { box-shadow: 0 0 0 0px rgba(239, 68, 68, 0); transform: scale(1); }
         }
-        .need-sync {
-            animation: pulse-sync 1.5s infinite;
-            background-color: #2563eb !important; /* 深藍色提醒 */
-        }
+        .need-sync { animation: pulse-sync-red 1.5s infinite; background-color: #ef4444 !important; }
         
-        .editable-name:hover {
-            background-color: rgba(0,0,0,0.05);
-            border-radius: 4px;
-            cursor: pointer;
+        .editable-name:hover { background-color: rgba(0,0,0,0.05); border-radius: 4px; cursor: pointer; }
+
+        /* 抽籤動畫 */
+        @keyframes slot-roll {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-80%); }
         }
+        .rolling { animation: slot-roll 2s cubic-bezier(0.1, 0, 0.1, 1) forwards; }
     </style>
 </head>
-<body class="bg-slate-50 overflow-hidden p-2">
+<body class="bg-slate-100 overflow-hidden p-2">
+    <!-- 頂部控制欄 -->
     <header class="bg-white rounded-xl shadow-sm px-3 py-2 mb-2 flex justify-between items-center relative border-b-2 border-slate-200">
         <div class="flex items-center gap-3">
             <div>
-                <h1 class="font-bold text-slate-800 text-sm">課室計分榜 (手動同步)</h1>
-                <div id="syncStatus" class="text-[9px] text-slate-400 font-medium">本地數據就緒</div>
+                <h1 class="font-bold text-slate-800 text-sm">課室計分榜 (手動同步版)</h1>
+                <div id="syncStatus" class="text-[9px] text-slate-400 font-medium">系統就緒</div>
             </div>
             <div id="saveStatus" class="text-[10px] text-blue-600 font-bold opacity-0">● 雲端已更新</div>
         </div>
         <div class="flex gap-2">
-            <!-- 手動同步按鈕 (帶有動態提醒類名控制) -->
             <button id="syncBtn" onclick="manualSync()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-md">
                 <svg id="syncIcon" xmlns="http://www.w3.org/2003/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
                 <span id="syncText">同步數據</span>
@@ -71,10 +62,60 @@
         </div>
     </header>
 
+    <!-- 中間工具欄：抽籤與計時器 -->
+    <div class="grid grid-cols-2 gap-2 mb-2">
+        <!-- 抽籤工具 -->
+        <div class="bg-white p-2 rounded-xl shadow-sm flex items-center justify-between border-l-4 border-amber-400">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <div class="bg-amber-100 p-1.5 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2003/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </div>
+                <div id="pickerDisplay" class="font-bold text-slate-700 truncate text-sm">點擊抽籤...</div>
+            </div>
+            <div class="flex gap-1">
+                <button onclick="startPick()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded-lg text-xs font-bold shadow-sm">隨機抽籤</button>
+                <button onclick="configStudents()" class="bg-slate-100 text-slate-500 p-1 rounded-lg hover:bg-slate-200">
+                    <svg xmlns="http://www.w3.org/2003/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 計時器工具 -->
+        <div class="bg-white p-2 rounded-xl shadow-sm flex items-center justify-between border-l-4 border-blue-400">
+            <div class="flex items-center gap-2">
+                <div id="timerIcon" class="bg-blue-100 p-1.5 rounded-lg text-blue-600">
+                    <svg xmlns="http://www.w3.org/2003/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <div id="timerDisplay" class="font-mono font-black text-xl text-slate-800">00:00</div>
+            </div>
+            <div class="flex gap-1" id="timerControls">
+                <button onclick="setTimer(30)" class="bg-slate-100 px-1.5 py-1 rounded text-[10px] font-bold">30s</button>
+                <button onclick="setTimer(60)" class="bg-slate-100 px-1.5 py-1 rounded text-[10px] font-bold">1m</button>
+                <button onclick="setTimer(180)" class="bg-slate-100 px-1.5 py-1 rounded text-[10px] font-bold">3m</button>
+                <button id="timerToggle" onclick="toggleTimer()" class="bg-blue-500 text-white px-3 py-1 rounded-lg text-xs font-bold shadow-sm ml-1">開始</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 計分榜 -->
     <div id="scoreboard" class="grid grid-cols-1 gap-1"></div>
+
+    <!-- 抽籤彈窗樣式 -->
+    <div id="pickerModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-8 w-full max-w-sm text-center shadow-2xl">
+            <h3 class="text-slate-400 text-sm font-bold mb-4 uppercase tracking-widest">隨機挑選學生</h3>
+            <div class="h-20 overflow-hidden relative border-y-2 border-slate-100 my-6">
+                <div id="slotMachine" class="flex flex-col gap-2 transition-all">
+                    <!-- 名字會在這裡滾動 -->
+                </div>
+            </div>
+            <button onclick="closePicker()" class="w-full bg-slate-800 text-white py-3 rounded-xl font-bold">確認</button>
+        </div>
+    </div>
 
     <audio id="plusSound" src="https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"></audio>
     <audio id="minusSound" src="https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3"></audio>
+    <audio id="timerEndSound" src="https://assets.mixkit.co/active_storage/sfx/1035/1035-preview.mp3"></audio>
 
     <script>
         const JSON_BIN_ID = '085cbfd3a843d7d7df1a'; 
@@ -86,56 +127,124 @@
             { id: 103, name: '3️⃣ 第三直行', score: 0, color: 'border-purple-500 bg-purple-50' },
             { id: 104, name: '4️⃣ 第四直行', score: 0, color: 'border-orange-500 bg-orange-50' },
             { id: 105, name: '5️⃣ 第五直行', score: 0, color: 'border-pink-500 bg-pink-50' },
-            { id: 106, name: '🦸‍♂️超人聯盟', score: -50, color: 'border-cyan-500 bg-cyan-50' },
-            { id: 107, name: '😈壞蛋聯盟', score: 50, color: 'border-indigo-500 bg-indigo-50' }
+            { id: 106, name: '🦸‍♂️超人聯盟', score: 0, color: 'border-cyan-500 bg-cyan-50' },
+            { id: 107, name: '😈壞蛋聯盟', score: 0, color: 'border-indigo-500 bg-indigo-50' }
         ];
 
         let groups = [];
+        let students = ["學生A", "學生B", "學生C", "學生D", "學生E"];
         let isSyncing = false;
         let localChanged = false; 
 
-        // 監聽視窗關閉，防止忘記同步
-        window.onbeforeunload = function() {
-            if (localChanged) {
-                return "您有未同步的分數，確定要離開嗎？";
-            }
-        };
+        // --- 計時器邏輯 ---
+        let timerSeconds = 0;
+        let timerInterval = null;
 
-        // 手動同步邏輯
+        function setTimer(sec) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            timerSeconds = sec;
+            updateTimerDisplay();
+            document.getElementById('timerToggle').innerText = "開始";
+            document.getElementById('timerToggle').className = "bg-blue-500 text-white px-3 py-1 rounded-lg text-xs font-bold shadow-sm ml-1";
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+            const s = (timerSeconds % 60).toString().padStart(2, '0');
+            document.getElementById('timerDisplay').innerText = `${m}:${s}`;
+        }
+
+        function toggleTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                document.getElementById('timerToggle').innerText = "繼續";
+                document.getElementById('timerToggle').className = "bg-emerald-500 text-white px-3 py-1 rounded-lg text-xs font-bold shadow-sm ml-1";
+            } else {
+                if (timerSeconds <= 0) return;
+                document.getElementById('timerToggle').innerText = "暫停";
+                document.getElementById('timerToggle').className = "bg-rose-500 text-white px-3 py-1 rounded-lg text-xs font-bold shadow-sm ml-1";
+                timerInterval = setInterval(() => {
+                    timerSeconds--;
+                    updateTimerDisplay();
+                    if (timerSeconds <= 0) {
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                        document.getElementById('timerEndSound').play();
+                        document.getElementById('timerDisplay').classList.add('animate-ping');
+                        setTimeout(() => document.getElementById('timerDisplay').classList.remove('animate-ping'), 2000);
+                        document.getElementById('timerToggle').innerText = "完成";
+                    }
+                }, 1000);
+            }
+        }
+
+        // --- 抽籤邏輯 ---
+        function configStudents() {
+            const currentStr = students.join(', ');
+            const input = prompt("請輸入學生名單 (用逗號或空格分隔)：", currentStr);
+            if (input !== null) {
+                students = input.split(/[,，\s]+/).filter(n => n.trim() !== "");
+                localStorage.setItem('classroom_students', JSON.stringify(students));
+                document.getElementById('pickerDisplay').innerText = "名單已更新";
+            }
+        }
+
+        function startPick() {
+            if (students.length === 0) return alert("請先設定學生名單");
+            const modal = document.getElementById('pickerModal');
+            const slot = document.getElementById('slotMachine');
+            modal.classList.remove('hidden');
+            
+            // 創建滾動效果
+            let html = "";
+            const rounds = 20; 
+            for(let i=0; i<rounds; i++) {
+                const randomName = students[Math.floor(Math.random() * students.length)];
+                html += `<div class="text-2xl font-bold text-slate-400 h-10 flex items-center justify-center">${randomName}</div>`;
+            }
+            const winner = students[Math.floor(Math.random() * students.length)];
+            html += `<div class="text-4xl font-black text-blue-600 h-10 flex items-center justify-center">${winner}</div>`;
+            
+            slot.innerHTML = html;
+            slot.classList.remove('rolling');
+            void slot.offsetWidth;
+            slot.classList.add('rolling');
+            
+            setTimeout(() => {
+                document.getElementById('pickerDisplay').innerText = `🎉 ${winner}`;
+            }, 2100);
+        }
+
+        function closePicker() {
+            document.getElementById('pickerModal').classList.add('hidden');
+        }
+
+        // --- 同步與計分核心 ---
         async function manualSync() {
             if (isSyncing) return;
             setSyncingUI(true);
-            updateStatus("正在同步...", "text-blue-500");
-
             try {
                 const fetchRes = await fetch(`${API_URL}?t=${Date.now()}`, { cache: "no-store" });
-                if (!fetchRes.ok) throw new Error("Fetch Failed");
                 const cloudData = await fetchRes.json();
-
-                // 如果本地沒改動，同步雲端數據到本地
-                if (!localChanged && Array.isArray(cloudData) && cloudData.length === 7) {
-                    groups = cloudData;
+                if (!localChanged && cloudData.groups) {
+                    groups = cloudData.groups;
                     render();
                 }
-
-                // 上傳當前數據
                 const saveRes = await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(groups)
+                    body: JSON.stringify({ groups, students })
                 });
-
                 if (saveRes.ok) {
                     localChanged = false;
-                    toggleSyncAlert(false); // 關閉提醒
+                    toggleSyncAlert(false);
                     showSaveIndicator();
                     updateStatus("同步成功", "text-emerald-600");
-                } else {
-                    throw new Error("Save Failed");
                 }
             } catch (e) {
-                console.error(e);
-                updateStatus("同步失敗，請重試", "text-rose-500");
+                updateStatus("同步失敗", "text-rose-500");
             } finally {
                 setTimeout(() => setSyncingUI(false), 500);
             }
@@ -153,126 +262,102 @@
             } else {
                 btn.classList.remove('opacity-70');
                 icon.classList.remove('sync-loading');
-                text.innerText = localChanged ? "立即上傳" : "同步數據";
+                text.innerText = localChanged ? "立即同步" : "同步數據";
             }
         }
 
-        // 切換同步提醒按鈕樣式
         function toggleSyncAlert(needed) {
             const btn = document.getElementById('syncBtn');
-            const text = document.getElementById('syncText');
-            if (needed) {
-                btn.classList.add('need-sync');
-                text.innerText = "立即上傳";
-            } else {
-                btn.classList.remove('need-sync');
-                text.innerText = "同步數據";
-            }
+            if (needed) btn.classList.add('need-sync');
+            else btn.classList.remove('need-sync');
         }
 
         function updateStatus(msg, colorClass) {
             const el = document.getElementById('syncStatus');
-            el.innerText = msg + " " + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            el.innerText = msg + " " + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             el.className = `text-[9px] font-medium ${colorClass}`;
         }
 
         function showSaveIndicator() {
             const indicator = document.getElementById('saveStatus');
-            indicator.classList.remove('save-indicator');
-            void indicator.offsetWidth; 
             indicator.classList.add('save-indicator');
+            setTimeout(() => indicator.classList.remove('save-indicator'), 1500);
         }
 
-        function playSound(isPlus) {
-            const sound = document.getElementById(isPlus ? 'plusSound' : 'minusSound');
-            if (sound) {
-                sound.volume = 0.15; 
-                sound.currentTime = 0;
-                sound.play().catch(() => {});
-            }
-        }
-
-        // 修改名稱
-        window.editName = (id) => {
-            const group = groups.find(g => g.id === id);
-            if (group) {
-                const newName = prompt("請輸入新的小隊名稱：", group.name);
-                if (newName !== null && newName.trim() !== "") {
-                    group.name = newName.trim();
-                    triggerLocalChange("名稱已修改，請按同步");
-                }
-            }
-        };
-
-        // 分數變動
         window.changeScore = (id, delta) => {
             const group = groups.find(g => g.id === id);
             if (group) {
                 group.score += delta;
-                triggerLocalChange("分數已更改，請按同步");
-                playSound(delta > 0);
+                triggerLocalChange("分數已更改");
+                document.getElementById(delta > 0 ? 'plusSound' : 'minusSound').play();
             }
         };
 
-        // 全體加分
-        window.addOneToAll = () => {
-            groups.forEach(g => g.score += 1);
-            triggerLocalChange("全體加分，請按同步");
-            playSound(true);
+        window.editName = (id) => {
+            const group = groups.find(g => g.id === id);
+            const newName = prompt("小隊名稱：", group.name);
+            if (newName) {
+                group.name = newName;
+                triggerLocalChange("名稱已修改");
+            }
         };
 
-        // 觸發本地變動狀態
+        window.addOneToAll = () => {
+            groups.forEach(g => g.score += 1);
+            triggerLocalChange("全體加分");
+            document.getElementById('plusSound').play();
+        };
+
         function triggerLocalChange(msg) {
             localChanged = true;
-            toggleSyncAlert(true); // 開啟按鈕閃爍提醒
+            toggleSyncAlert(true);
             render();
             updateStatus(msg, "text-amber-500");
             localStorage.setItem('classroom_scores_final_v7', JSON.stringify(groups));
         }
 
         window.resetScores = () => {
-            if (confirm('確定要將本地分數與名稱重置嗎？(需點擊同步才會更新雲端)')) {
+            if (confirm('重置所有數據？')) {
                 groups = JSON.parse(JSON.stringify(defaultGroups));
-                triggerLocalChange("本地已重置，請按同步");
+                triggerLocalChange("數據已重置");
             }
         };
 
         function render() {
             const container = document.getElementById('scoreboard');
-            if (!container) return;
             const sortedGroups = [...groups].sort((a, b) => b.score - a.score);
-
             container.innerHTML = sortedGroups.map((group) => `
-                <div id="group-${group.id}" class="group-card border-t-2 ${group.color} rounded-lg shadow-sm p-1.5 flex flex-row items-center justify-between relative overflow-hidden h-full">
-                    <div class="flex flex-col items-start justify-center pl-1 max-w-[30%]">
-                        <h2 onclick="editName(${group.id})" class="editable-name text-xl font-black text-slate-700 leading-none tracking-tight break-words px-1 py-1 transition-colors">
+                <div class="group-card border-t-2 ${group.color} rounded-lg shadow-sm p-2 flex flex-row items-center justify-between h-full bg-white/50">
+                    <div class="flex flex-col items-start justify-center pl-1 max-w-[25%]">
+                        <h2 onclick="editName(${group.id})" class="editable-name text-lg font-black text-slate-700 leading-tight">
                             ${group.name}
                         </h2>
                     </div>
                     <div class="text-5xl font-black text-slate-800 tabular-nums flex-1 text-center">
                         ${group.score}
                     </div>
-                    <div class="flex flex-col gap-0.5 w-28 h-full justify-center">
+                    <div class="flex flex-col gap-0.5 w-28">
                         <div class="grid grid-cols-2 gap-1">
-                            <button onclick="changeScore(${group.id}, 2)" class="btn-touch bg-yellow-400 text-white text-2xl font-extrabold py-2 rounded-lg transition shadow-sm">+2</button>
-                            <button onclick="changeScore(${group.id}, 3)" class="btn-touch bg-yellow-400 text-white text-2xl font-extrabold py-2 rounded-lg transition shadow-sm">+3</button>
+                            <button onclick="changeScore(${group.id}, 2)" class="btn-touch bg-yellow-400 text-white text-xl font-bold py-2 rounded-lg">+2</button>
+                            <button onclick="changeScore(${group.id}, 3)" class="btn-touch bg-yellow-400 text-white text-xl font-bold py-2 rounded-lg">+3</button>
                         </div>
                         <div class="grid grid-cols-2 gap-1">
-                            <button onclick="changeScore(${group.id}, 1)" class="btn-touch bg-emerald-500 text-white text-2xl font-extrabold py-2 rounded-lg transition shadow-sm">+1</button>
-                            <button onclick="changeScore(${group.id}, -1)" class="btn-touch bg-rose-500 text-white text-2xl font-extrabold py-2 rounded-lg transition shadow-sm">-1</button>
+                            <button onclick="changeScore(${group.id}, 1)" class="btn-touch bg-emerald-500 text-white text-xl font-bold py-2 rounded-lg">+1</button>
+                            <button onclick="changeScore(${group.id}, -1)" class="btn-touch bg-rose-500 text-white text-xl font-bold py-2 rounded-lg">-1</button>
                         </div>
                     </div>
                 </div>
             `).join('');
         }
 
-        window.onload = async () => {
-            const saved = localStorage.getItem('classroom_scores_final_v7');
-            if (saved) {
-                groups = JSON.parse(saved);
-                render();
-            }
-            manualSync(); 
+        window.onload = () => {
+            const savedG = localStorage.getItem('classroom_scores_final_v7');
+            const savedS = localStorage.getItem('classroom_students');
+            if (savedG) groups = JSON.parse(savedG);
+            else groups = JSON.parse(JSON.stringify(defaultGroups));
+            if (savedS) students = JSON.parse(savedS);
+            render();
+            manualSync();
         };
     </script>
 </body>
