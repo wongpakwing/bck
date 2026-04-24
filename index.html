@@ -24,19 +24,34 @@
             background-size: 100% 100%;
         }
         
+        /* 調整容器讓公仔可以溢出而不被遮擋 */
+        .progress-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 12px;
+            background: rgba(226, 232, 240, 0.5); /* slate-200/50 */
+            overflow: visible; /* 允許公仔突出 */
+        }
+
         .progress-bar {
+            height: 100%;
             transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
             position: relative;
         }
 
-        /* 跑道上的小圖標 */
+        /* 優化公仔圖標定位 */
         .runner-icon {
             position: absolute;
-            right: -12px;
+            right: 0;
             top: 50%;
-            transform: translateY(-50%);
-            font-size: 20px;
-            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
+            transform: translate(50%, -60%); /* 向右偏移一半，確保中心在進度末端，向上微調 */
+            font-size: 24px;
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
+            z-index: 20;
+            pointer-events: none;
+            white-space: nowrap;
         }
 
         /* --- 骰子樣式 --- */
@@ -342,8 +357,8 @@
                 const isWinner = g.score >= scoreGoal;
                 
                 return `
-                <div class="border-l-4 ${g.color} rounded shadow-sm px-4 flex flex-col justify-center relative overflow-hidden group">
-                    <div class="absolute inset-0 track-bg opacity-30"></div>
+                <div class="border-l-4 ${g.color} rounded shadow-sm px-4 flex flex-col justify-center relative overflow-visible group">
+                    <div class="absolute inset-0 track-bg opacity-30 pointer-events-none"></div>
                     <div class="flex items-center justify-between z-10">
                         <div class="w-24 shrink-0">
                             <h2 onclick="editName(${g.id})" class="text-[11px] font-black text-slate-500 truncate cursor-pointer hover:text-blue-600">${g.name}</h2>
@@ -356,8 +371,9 @@
                             <button onclick="changeScore(${g.id}, -1)" class="btn-touch bg-slate-200 text-slate-500 w-9 h-9 rounded-lg font-bold text-lg shadow-sm">-</button>
                         </div>
                     </div>
-                    <div class="absolute bottom-0 left-0 h-2 bg-slate-200/50 w-full z-0">
-                        <div class="progress-bar h-full ${g.barColor}" style="width: ${progress}%">
+                    <!-- 進度條軌道：允許圖標溢出 -->
+                    <div class="progress-container">
+                        <div class="progress-bar ${g.barColor}" style="width: ${progress}%">
                             <span class="runner-icon">${isWinner ? '🏆' : g.icon}</span>
                         </div>
                     </div>
