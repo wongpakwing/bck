@@ -5,23 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>課室計分榜 - 互動加強版</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入爆紙花庫 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; touch-action: manipulation; }
         
         #scoreboard { 
-            height: calc(100vh - 200px); 
+            height: calc(100vh - 180px); 
             display: grid;
             grid-template-rows: repeat(7, 1fr);
-            gap: 4px;
+            gap: 8px;
         }
 
         .btn-touch:active { transform: scale(0.92); }
         
-        /* --- 進度條動畫 --- */
+        /* --- 進度條（賽跑跑道效果） --- */
+        .track-bg {
+            background-image: repeating-linear-gradient(90deg, transparent, transparent 19%, rgba(0,0,0,0.05) 20%);
+            background-size: 100% 100%;
+        }
+        
         .progress-bar {
-            transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+        }
+
+        /* 跑道上的小圖標 */
+        .runner-icon {
+            position: absolute;
+            right: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 20px;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
         }
 
         /* --- 骰子樣式 --- */
@@ -52,43 +67,40 @@
             100% { transform: rotate(0deg) scale(1); }
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-
-        /* 旋轉動畫 */
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .spin-anim { animation: spin 0.1s linear infinite; }
     </style>
 </head>
 <body class="bg-slate-200 overflow-hidden px-2 pt-2">
     <header class="bg-white/80 backdrop-blur rounded-t-xl px-3 py-1.5 flex justify-between items-center border-b border-slate-300">
         <div class="flex items-center gap-2">
             <h1 class="font-bold text-slate-800 text-xs">課室計分榜</h1>
-            <div id="syncStatus" class="text-[9px] text-slate-500">就緒</div>
+            <div id="syncStatus" class="text-[9px] text-slate-500">賽跑模式中 (目標: 20分)</div>
         </div>
         <div class="flex gap-2">
-            <button id="syncBtn" onclick="manualSync()" class="bg-blue-600 text-white px-3 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-1 shadow-sm">
-                <span>同步</span>
-            </button>
-            <button onclick="addOneToAll()" class="bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-bold">全體+1</button>
+            <button onclick="setScoreGoal()" class="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-[10px] font-bold border border-slate-300">設定目標</button>
+            <button onclick="addOneToAll()" class="bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-sm">全體+1</button>
             <button onclick="resetScores()" class="bg-slate-400 text-white px-2 py-1 rounded-full text-[10px]">重置</button>
         </div>
     </header>
 
-    <div id="scoreboard" class="bg-slate-50 p-1"></div>
+    <div id="scoreboard" class="bg-slate-100 p-2 border-x border-slate-300"></div>
 
     <!-- 底部控制台 -->
     <footer class="bg-slate-800 rounded-b-xl p-2 grid grid-cols-2 gap-2 shadow-inner">
-        <!-- 抽籤 & 骰子 區塊 -->
+        <!-- 抽籤 & 獎懲 區塊 -->
         <div class="bg-slate-700 rounded-lg px-2 py-1.5 flex flex-col gap-2 border border-slate-600">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2 min-w-0 flex-1">
-                    <button onclick="configStudents()" class="text-slate-400 hover:text-white shrink-0">
-                        <svg xmlns="http://www.w3.org/2003/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <button onclick="configStudents()" title="設定學生名單" class="text-slate-400 hover:text-amber-400 shrink-0 transition">
+                        <svg xmlns="http://www.w3.org/2003/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     </button>
-                    <div id="pickerDisplay" class="text-amber-400 font-bold text-sm truncate">點擊抽籤...</div>
+                    <div id="pickerDisplay" class="text-amber-400 font-bold text-sm truncate italic">點擊右側開始...</div>
+                    <button onclick="configRewards()" title="設定獎勵內容" class="text-slate-400 hover:text-rose-400 shrink-0 transition ml-1">
+                        <svg xmlns="http://www.w3.org/2003/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    </button>
                 </div>
                 <div class="flex gap-1">
-                    <button onclick="startPick()" class="btn-touch bg-amber-500 text-white px-2 py-1 rounded text-[10px] font-bold">抽學生</button>
-                    <button onclick="pickReward()" class="btn-touch bg-rose-500 text-white px-2 py-1 rounded text-[10px] font-bold">隨機獎勵</button>
+                    <button onclick="startPick()" class="btn-touch bg-amber-500 text-white px-2 py-1 rounded text-[10px] font-bold shadow-md">抽學生</button>
+                    <button onclick="pickReward()" class="btn-touch bg-rose-500 text-white px-2 py-1 rounded text-[10px] font-bold shadow-md">抽獎懲</button>
                 </div>
             </div>
             
@@ -106,37 +118,31 @@
             </div>
         </div>
 
-        <!-- 計時器 & 音效 區塊 -->
+        <!-- 計時器 區塊 -->
         <div class="bg-slate-700 rounded-lg px-2 py-1.5 flex flex-col justify-between border border-slate-600">
             <div class="flex items-center justify-between mb-1">
-                <div id="timerDisplay" class="font-mono font-black text-xl text-white">00:00</div>
+                <div id="timerDisplay" class="font-mono font-black text-2xl text-white tracking-tighter">00:00</div>
                 <div class="flex gap-1">
-                    <button id="timerToggle" onclick="toggleTimer()" class="btn-touch bg-blue-500 text-white px-2 py-1 rounded text-[10px] font-bold">開始</button>
-                    <button onclick="clearTimer()" class="text-[10px] bg-rose-900 text-rose-200 px-2 py-1 rounded">重設</button>
+                    <button id="timerToggle" onclick="toggleTimer()" class="btn-touch bg-blue-500 text-white px-3 py-1 rounded text-[11px] font-bold shadow-md">開始</button>
+                    <button onclick="clearTimer()" class="text-[10px] bg-rose-900/50 text-rose-200 px-2 py-1 rounded border border-rose-800">重設</button>
                 </div>
             </div>
-            <!-- 音效快捷鍵 -->
-            <div class="flex gap-1 justify-center border-t border-slate-600 pt-1.5">
-                <button onclick="playEffectSound('cheerSound')" class="text-[10px] bg-slate-600 text-white px-1 rounded py-1 flex-1">👏 掌聲</button>
-                <button onclick="playEffectSound('correctSound')" class="text-[10px] bg-slate-600 text-white px-1 rounded py-1 flex-1">✅ 答對</button>
-                <button onclick="playEffectSound('wrongSound')" class="text-[10px] bg-slate-600 text-white px-1 rounded py-1 flex-1">❌ 答錯</button>
-            </div>
-            <div class="flex gap-1 justify-center mt-1">
-                <button onclick="addTimer(30)" class="text-[9px] text-slate-400">+30s</button>
-                <button onclick="addTimer(60)" class="text-[9px] text-slate-400">+1m</button>
-                <button onclick="addTimer(300)" class="text-[9px] text-slate-400">+5m</button>
+            <div class="flex gap-1 justify-between mt-1 pt-2 border-t border-slate-600">
+                <button onclick="addTimer(30)" class="bg-slate-600 hover:bg-slate-500 text-white text-[10px] py-1 px-2 rounded">+30s</button>
+                <button onclick="addTimer(60)" class="bg-slate-600 hover:bg-slate-500 text-white text-[10px] py-1 px-2 rounded">+1m</button>
+                <button onclick="addTimer(300)" class="bg-slate-600 hover:bg-slate-500 text-white text-[10px] py-1 px-2 rounded">+5m</button>
             </div>
         </div>
     </footer>
 
-    <!-- 抽籤 Modal (學生/獎勵 通用) -->
+    <!-- 抽籤 Modal -->
     <div id="pickerModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl p-6 w-full max-w-xs text-center shadow-2xl">
-            <h3 id="modalTitle" class="text-slate-400 text-[10px] font-bold mb-4 tracking-widest uppercase text-center">Random Selection</h3>
-            <div class="h-20 flex items-center justify-center bg-slate-50 rounded-xl border-2 border-slate-100 overflow-hidden relative">
-                <div id="modalResult" class="text-2xl font-black text-slate-800">...</div>
+        <div class="bg-white rounded-2xl p-6 w-full max-w-xs text-center shadow-2xl scale-up-center">
+            <h3 id="modalTitle" class="text-slate-400 text-[10px] font-bold mb-4 tracking-widest uppercase text-center italic">Processing...</h3>
+            <div class="h-24 flex items-center justify-center bg-slate-50 rounded-xl border-4 border-slate-100 overflow-hidden relative">
+                <div id="modalResult" class="text-2xl font-black text-slate-800 px-2">...</div>
             </div>
-            <button onclick="closePicker()" class="w-full bg-slate-800 text-white py-2.5 rounded-lg font-bold mt-6 shadow-md active:scale-95 transition">確認</button>
+            <button onclick="closePicker()" class="w-full bg-slate-800 text-white py-3 rounded-lg font-bold mt-6 shadow-lg active:scale-95 transition">收下結果</button>
         </div>
     </div>
 
@@ -145,16 +151,11 @@
     <audio id="minusSound" src="https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3"></audio>
     <audio id="timerEndSound" src="https://assets.mixkit.co/active_storage/sfx/1070/1070-preview.mp3"></audio>
     <audio id="diceSound" src="https://assets.mixkit.co/active_storage/sfx/2034/2034-preview.mp3"></audio>
-    <audio id="cheerSound" src="https://assets.mixkit.co/active_storage/sfx/2020/2020-preview.mp3"></audio>
-    <audio id="correctSound" src="https://assets.mixkit.co/active_storage/sfx/1915/1915-preview.mp3"></audio>
-    <audio id="wrongSound" src="https://assets.mixkit.co/active_storage/sfx/1916/1916-preview.mp3"></audio>
 
     <script>
-        const API_URL = `https://api.npoint.io/085cbfd3a843d7d7df1a`;
         let groups = [];
         let students = ["學生A", "學生B", "學生C", "學生D", "學生E", "學生F", "學生G"];
-        const rewards = ["⭐️ 加 1 分", "🎁 免功課一次", "👑 坐老師位", "📍 換位權一次", "🍫 糖果一份", "🔥 下次加分加倍", "💀 扣 1 分"];
-        let isSyncing = false;
+        let rewards = ["⭐️ 加 1 分", "🎁 免功課一次", "👑 坐老師位", "📍 換位權一次", "🍫 糖果一份", "🔥 分數翻倍", "💀 扣 1 分"];
         let scoreGoal = 20;
 
         function playEffectSound(id) {
@@ -182,7 +183,7 @@
                 if (!isNaN(val)) total += val;
                 else if (d.innerText === '?') stillRolling = true;
             });
-            display.innerText = stillRolling ? "滾動中..." : `合計: ${total}`;
+            display.innerText = stillRolling ? "ROLL..." : `合計: ${total}`;
         }
 
         function addDice() {
@@ -254,11 +255,12 @@
             }
         }
 
-        // --- 抽籤與獎勵 ---
+        // --- 抽籤與獎勵設定 ---
         function startPick() { runModalAnimation("隨機抽學生", students); }
-        function pickReward() { runModalAnimation("隨機獎懲", rewards); }
+        function pickReward() { runModalAnimation("隨機獎懲抽獎", rewards); }
 
         function runModalAnimation(title, list) {
+            if (list.length === 0) return;
             const modal = document.getElementById('pickerModal');
             const resultDiv = document.getElementById('modalResult');
             document.getElementById('modalTitle').innerText = title;
@@ -273,49 +275,79 @@
                     clearInterval(interval);
                     const final = list[Math.floor(Math.random() * list.length)];
                     resultDiv.innerText = final;
-                    document.getElementById('pickerDisplay').innerText = `✨ ${final}`;
-                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.7 } });
+                    document.getElementById('pickerDisplay').innerText = `最後結果: ${final}`;
+                    confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#fbbf24', '#f43f5e', '#3b82f6'] });
                 }
-            }, 100);
+            }, 80);
         }
 
         function closePicker() { document.getElementById('pickerModal').classList.add('hidden'); }
+        
         function configStudents() {
-            const input = prompt("輸入名單(逗號分隔)：", students.join(', '));
-            if (input) students = input.split(/[,，\s]+/).filter(n => n.trim() !== "");
+            const input = prompt("修改學生名單 (以逗號分隔)：", students.join(', '));
+            if (input !== null) {
+                students = input.split(/[,，\s]+/).filter(n => n.trim() !== "");
+            }
+        }
+
+        function configRewards() {
+            const input = prompt("修改獎勵內容 (以逗號分隔)：", rewards.join(', '));
+            if (input !== null) {
+                rewards = input.split(/[,，\s]+/).filter(n => n.trim() !== "");
+            }
+        }
+
+        function setScoreGoal() {
+            const val = prompt("設定賽跑目標分數：", scoreGoal);
+            if (val && !isNaN(val)) {
+                scoreGoal = parseInt(val);
+                document.getElementById('syncStatus').innerText = `賽跑模式中 (目標: ${scoreGoal}分)`;
+                render();
+            }
         }
 
         // --- 計分系統 ---
         const defaultGroups = [
-            { id: 1, name: '第一組', score: 0, color: 'border-blue-500 bg-blue-50', barColor: 'bg-blue-500' },
-            { id: 2, name: '第二組', score: 0, color: 'border-green-500 bg-green-50', barColor: 'bg-green-500' },
-            { id: 3, name: '第三組', score: 0, color: 'border-purple-500 bg-purple-50', barColor: 'bg-purple-500' },
-            { id: 4, name: '第四組', score: 0, color: 'border-orange-500 bg-orange-50', barColor: 'bg-orange-500' },
-            { id: 5, name: '第五組', score: 0, color: 'border-pink-500 bg-pink-50', barColor: 'bg-pink-500' },
-            { id: 6, name: '第六組', score: 0, color: 'border-cyan-500 bg-cyan-50', barColor: 'bg-cyan-500' },
-            { id: 7, name: '第七組', score: 0, color: 'border-indigo-500 bg-indigo-50', barColor: 'bg-indigo-500' }
+            { id: 1, name: '第一組', score: 0, color: 'border-blue-500 bg-white', barColor: 'bg-blue-500', icon: '🚗' },
+            { id: 2, name: '第二組', score: 0, color: 'border-green-500 bg-white', barColor: 'bg-green-500', icon: '🚲' },
+            { id: 3, name: '第三組', score: 0, color: 'border-purple-500 bg-white', barColor: 'bg-purple-500', icon: '🏃' },
+            { id: 4, name: '第四組', score: 0, color: 'border-orange-500 bg-white', barColor: 'bg-orange-500', icon: '🚀' },
+            { id: 5, name: '第五組', score: 0, color: 'border-pink-500 bg-white', barColor: 'bg-pink-500', icon: '⛵' },
+            { id: 6, name: '第六組', score: 0, color: 'border-cyan-500 bg-white', barColor: 'bg-cyan-500', icon: '🛸' },
+            { id: 7, name: '第七組', score: 0, color: 'border-indigo-500 bg-white', barColor: 'bg-indigo-500', icon: '🦄' }
         ];
 
         function render() {
             const container = document.getElementById('scoreboard');
+            // 按分數高低渲染，創造競爭感
             const sorted = [...groups].sort((a, b) => b.score - a.score);
             container.innerHTML = sorted.map(g => {
                 const progress = Math.min(100, (g.score / scoreGoal) * 100);
+                const isWinner = g.score >= scoreGoal;
+                
                 return `
-                <div class="border-l-4 ${g.color} rounded shadow-sm px-4 flex flex-col justify-center bg-white overflow-hidden relative">
+                <div class="border-l-4 ${g.color} rounded shadow-sm px-4 flex flex-col justify-center relative overflow-hidden group">
+                    <!-- 賽跑跑道背景 -->
+                    <div class="absolute inset-0 track-bg opacity-30"></div>
+                    
                     <div class="flex items-center justify-between z-10">
                         <div class="w-24 shrink-0">
-                            <h2 onclick="editName(${g.id})" class="text-xs font-black text-slate-600 truncate cursor-pointer">${g.name}</h2>
+                            <h2 onclick="editName(${g.id})" class="text-[11px] font-black text-slate-500 truncate cursor-pointer hover:text-blue-600">${g.name}</h2>
                         </div>
-                        <div class="text-3xl font-black text-slate-800 tabular-nums flex-1 text-center">${g.score}</div>
+                        <div class="text-3xl font-black ${isWinner ? 'text-rose-600 animate-bounce' : 'text-slate-800'} tabular-nums flex-1 text-center">
+                            ${g.score}
+                        </div>
                         <div class="flex gap-1 shrink-0">
-                            <button onclick="changeScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-8 h-8 rounded font-bold">+1</button>
-                            <button onclick="changeScore(${g.id}, -1)" class="btn-touch bg-slate-200 text-slate-500 w-8 h-8 rounded font-bold">-</button>
+                            <button onclick="changeScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-9 h-9 rounded-lg font-bold text-lg shadow-sm">+</button>
+                            <button onclick="changeScore(${g.id}, -1)" class="btn-touch bg-slate-200 text-slate-500 w-9 h-9 rounded-lg font-bold text-lg shadow-sm">-</button>
                         </div>
                     </div>
-                    <!-- 進度條 -->
-                    <div class="absolute bottom-0 left-0 h-1 bg-slate-100 w-full">
-                        <div class="progress-bar h-full ${g.barColor}" style="width: ${progress}%"></div>
+                    
+                    <!-- 分組進度條（賽跑跑道） -->
+                    <div class="absolute bottom-0 left-0 h-2 bg-slate-200/50 w-full z-0">
+                        <div class="progress-bar h-full ${g.barColor}" style="width: ${progress}%">
+                            <span class="runner-icon">${isWinner ? '🏆' : g.icon}</span>
+                        </div>
                     </div>
                 </div>
             `}).join('');
@@ -328,37 +360,35 @@
                 if (group.score < 0) group.score = 0;
                 render();
                 playEffectSound(delta > 0 ? 'plusSound' : 'minusSound');
+                
+                if (group.score >= scoreGoal && delta > 0) {
+                    confetti({ particleCount: 50, spread: 40, origin: { y: 0.5 } });
+                }
             }
         }
+
         function editName(id) {
             const group = groups.find(g => g.id === id);
             const newName = prompt("修改組名：", group.name);
             if (newName) { group.name = newName; render(); }
         }
+
         function addOneToAll() {
             groups.forEach(g => g.score++);
             render();
             playEffectSound('plusSound');
         }
+
         function resetScores() {
-            if (confirm('確定重置所有分數？')) { groups.forEach(g => g.score = 0); render(); }
-        }
-        async function manualSync() {
-            if (isSyncing) return;
-            isSyncing = true;
-            try {
-                const fetchRes = await fetch(`${API_URL}?t=${Date.now()}`);
-                const data = await fetchRes.json();
-                if (data.groups) groups = data.groups;
-                render();
-            } catch (e) { console.error(e); } 
-            finally { isSyncing = false; }
+            if (confirm('確定重置所有分數與賽道進度？')) { 
+                groups.forEach(g => g.score = 0); 
+                render(); 
+            }
         }
 
         window.onload = () => {
             groups = JSON.parse(JSON.stringify(defaultGroups));
             render();
-            manualSync();
         };
     </script>
 </body>
