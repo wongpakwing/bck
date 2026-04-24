@@ -1,10 +1,10 @@
-```html
+`
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課室計分榜 - 拉鋸挑戰版</title>
+    <title>課室計分榜 - 零和拉鋸版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
@@ -42,7 +42,7 @@
 
         /* 小組進度條 */
         .group-progress-bar {
-            height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 4px;
+            height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 6px;
         }
         .group-progress-fill {
             height: 100%; transition: width 0.5s ease-out;
@@ -198,52 +198,75 @@
                 </div>
             `;
 
-            // 普通分組渲染 (進度條基準設為50)
+            // 普通分組渲染 (分數置中對齊)
             const baseScale = 50;
             const maxVal = Math.max(...regularGroups.map(g => g.score), baseScale);
             
             document.getElementById('regular-zone').innerHTML = regularGroups.map(g => `
-                <div class="bg-white rounded-xl p-2 flex flex-col flex-grow shadow-sm border-l-4 ${g.border} min-h-0">
-                    <div class="flex justify-between items-center h-full">
-                        <span class="text-lg font-black text-slate-800">${g.name}</span>
-                        <div class="flex items-center gap-3">
-                            <div class="text-3xl font-black text-slate-900 tabular-nums leading-none">${g.score}</div>
+                <div class="bg-white rounded-xl p-2 flex flex-col flex-grow shadow-sm border-b-4 ${g.border} min-h-0">
+                    <div class="flex flex-col items-center justify-center h-full gap-1">
+                        <span class="text-base font-black text-slate-800">${g.name}</span>
+                        <div class="flex items-center gap-6">
                             <div class="flex gap-1">
-                                <button onclick="scoreReg(${g.id},2)" class="bg-amber-400 text-white w-9 h-8 rounded-lg font-black text-xs">+2</button>
+                                <button onclick="scoreReg(${g.id},-1)" class="bg-slate-100 text-slate-400 w-8 h-8 rounded-lg font-black text-[10px]">-1</button>
+                            </div>
+                            <div class="text-4xl font-black text-slate-900 tabular-nums leading-none min-w-[3rem] text-center">${g.score}</div>
+                            <div class="flex gap-1">
                                 <button onclick="scoreReg(${g.id},1)" class="bg-emerald-500 text-white w-9 h-8 rounded-lg font-black text-xs">+1</button>
-                                <button onclick="scoreReg(${g.id},-1)" class="bg-slate-100 text-slate-400 w-7 h-8 rounded-lg font-black text-[10px]">-1</button>
+                                <button onclick="scoreReg(${g.id},2)" class="bg-amber-400 text-white w-9 h-8 rounded-lg font-black text-xs">+2</button>
                             </div>
                         </div>
-                    </div>
-                    <div class="group-progress-bar">
-                        <div class="group-progress-fill ${g.color}" style="width: ${Math.min((g.score/maxVal)*100, 100)}%"></div>
+                        <div class="group-progress-bar w-full max-w-md">
+                            <div class="group-progress-fill ${g.color}" style="width: ${Math.min((g.score/maxVal)*100, 100)}%"></div>
+                        </div>
                     </div>
                 </div>
             `).join('');
         }
 
-        // 分數功能
-        function scoreSpec(id, d) { 
-            const group = specialGroups.find(x=>x.id===id);
-            group.score += d;
-            if (group.score < 0) group.score = 0; // 防止負分
-            
-            // 檢查是否剛好達到拉鋸戰門檻並放煙火
+        // 分數功能 (包含拉鋸戰零和邏輯)
+        function scoreSpec(targetId, delta) { 
+            const teamA = specialGroups[0];
+            const teamB = specialGroups[1];
             const threshold = 30;
-            const teamA = specialGroups[0].score;
-            const teamB = specialGroups[1].score;
-            if (teamA >= threshold && teamB >= threshold && (teamA === threshold || teamB === threshold) && d > 0) {
+            
+            // 檢查在操作前是否已經處於拉鋸戰狀態
+            const alreadyInDuel = teamA.score >= threshold && teamB.score >= threshold;
+
+            if (alreadyInDuel) {
+                // 零和邏輯：一方加，另一方減；一方減，另一方加
+                if (targetId === 'A') {
+                    teamA.score += delta;
+                    teamB.score -= delta;
+                } else {
+                    teamB.score += delta;
+                    teamA.score -= delta;
+                }
+            } else {
+                // 一般加減分邏輯
+                const target = specialGroups.find(x => x.id === targetId);
+                target.score += delta;
+            }
+
+            // 安全檢查：分數不低於 0
+            if (teamA.score < 0) teamA.score = 0;
+            if (teamB.score < 0) teamB.score = 0;
+
+            // 剛進入拉鋸戰時灑花
+            if (!alreadyInDuel && teamA.score >= threshold && teamB.score >= threshold) {
                 confetti({particleCount: 200, spread: 90, origin: { y: 0.3 }});
             }
             
             render(); 
         }
+
         function scoreReg(id, d) { 
             const group = regularGroups.find(x=>x.id===id);
             group.score += d;
             if (group.score < 0) group.score = 0;
             render(); 
         }
+
         function addOneToAllRegular() { regularGroups.forEach(g=>g.score++); render(); }
         function resetAll() { if(confirm('確定要清除所有組別分數並重置嗎？')) location.reload(); }
 
@@ -262,7 +285,7 @@
             closeSettings();
         }
 
-        // 計時器 (更新為 +10s)
+        // 計時器
         let timerSeconds = 0, timerInterval = null;
         function updateT() { document.getElementById('timerDisplay').innerText = `${Math.floor(timerSeconds/60).toString().padStart(2,'0')}:${(timerSeconds%60).toString().padStart(2,'0')}`; }
         function addTimer(s) { timerSeconds += s; updateT(); }
@@ -300,4 +323,3 @@
 </body>
 </html>
 
-```
