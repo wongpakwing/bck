@@ -11,7 +11,7 @@
         
         /* 佈局分配：頂部固定，中間自適應，底部固定 */
         #special-zone { height: 160px; shrink: 0; }
-        #regular-zone { flex: 1; min-height: 0; } /* 讓下方五組平分剩餘空間 */
+        #regular-zone { flex: 1; min-height: 0; }
 
         .btn-touch:active { transform: scale(0.92); }
         
@@ -83,12 +83,12 @@
         </div>
     </header>
 
-    <!-- 特種競賽區 (縮小高度) -->
+    <!-- 特種競賽區 -->
     <div id="special-zone" class="grid grid-cols-2 gap-2 p-2 bg-slate-800 border-x border-slate-300">
         <!-- JS Render -->
     </div>
 
-    <!-- 常規區 (平分剩餘空間) -->
+    <!-- 常規區 -->
     <div id="regular-zone" class="bg-slate-100 p-2 border-x border-slate-300 flex flex-col gap-2 no-scrollbar overflow-hidden">
         <!-- JS Render -->
     </div>
@@ -96,10 +96,11 @@
     <!-- 底部控制台 -->
     <footer class="bg-slate-900 rounded-b-xl p-2 flex flex-col gap-2 shrink-0">
         <div class="flex gap-2">
-            <div class="flex-1 bg-slate-800 rounded-lg p-2 border border-slate-700">
+            <div class="flex-[1.5] bg-slate-800 rounded-lg p-2 border border-slate-700">
                 <div id="pickerDisplay" class="text-amber-400 font-bold text-[10px] mb-1 italic">等待抽籤...</div>
                 <div class="flex gap-1">
                     <button onclick="startPick('student')" class="btn-touch flex-1 bg-amber-500 text-white py-1.5 rounded text-[11px] font-bold">抽學生</button>
+                    <button onclick="startPick('reward')" class="btn-touch flex-1 bg-purple-500 text-white py-1.5 rounded text-[11px] font-bold">抽獎懲</button>
                     <button onclick="rollDiceDirect()" class="btn-touch flex-1 bg-rose-500 text-white py-1.5 rounded text-[11px] font-bold">🎲 擲骰</button>
                 </div>
             </div>
@@ -121,7 +122,7 @@
         <div class="bg-white rounded-2xl p-6 w-full max-w-xs text-center shadow-2xl">
             <h3 id="modalTitle" class="text-slate-400 text-[10px] font-bold mb-4 uppercase italic">正在抽取</h3>
             <div class="min-h-[80px] flex items-center justify-center bg-slate-50 rounded-xl border-2 border-slate-100">
-                <div id="modalResult" class="text-2xl font-black text-slate-800">...</div>
+                <div id="modalResult" class="text-2xl font-black text-slate-800 px-2">...</div>
             </div>
             <button onclick="closeModal()" class="w-full bg-slate-800 text-white py-3 rounded-lg font-bold mt-4 shadow-lg">確認</button>
         </div>
@@ -145,20 +146,20 @@
             { id: 5, name: '第五組', score: 0, icon: '⛵', barColor: 'bg-pink-500' }
         ];
 
-        let students = ["學生1", "學生2", "學生3", "學生4", "學生5"];
+        let students = ["學生A", "學生B", "學生C", "學生D", "學生E", "學生F"];
+        let rewards = ["加 1 分", "扣 1 分", "表演節目", "免死金牌", "小禮物", "再抽一次"];
         let scoreGoal = 20;
 
         function render() {
-            const isDuel = Math.abs(specialGroups[0].score) === Math.abs(specialGroups[1].score);
+            const isDuel = specialGroups[0].score === specialGroups[1].score;
             document.getElementById('modeText').innerText = isDuel ? "拉鋸模式啟動" : "各隊得分中";
             document.getElementById('modeText').className = isDuel ? "text-rose-600 font-black animate-pulse text-[10px]" : "text-blue-600 text-[10px]";
 
             // 1. 渲染頂部兩組
             const specialContainer = document.getElementById('special-zone');
             specialContainer.innerHTML = specialGroups.map(g => {
-                let progress = 0;
-                if (g.id === 'A') progress = ((g.score - (-50)) / (0 - (-50))) * 100;
-                else progress = ((50 - g.score) / (50 - 0)) * 100;
+                // 進度條顯示逻辑：-50 為 0%，0 為 50%，+50 為 100%
+                let progress = ((g.score - (-50)) / (50 - (-50))) * 100;
                 progress = Math.min(100, Math.max(0, progress));
 
                 return `
@@ -168,7 +169,7 @@
                                 <span class="text-[9px] font-black text-slate-400 block">${g.name}</span>
                                 <div class="member-list" onclick="editMembers('${g.id}')">${g.members}</div>
                             </div>
-                            <span class="text-xl ml-1">${g.score === 0 ? '🏆' : g.icon}</span>
+                            <span class="text-xl ml-1">${g.icon}</span>
                         </div>
                         
                         <div class="text-3xl font-black text-center tabular-nums leading-none my-1">
@@ -183,7 +184,7 @@
                         <div class="progress-track">
                             <div class="progress-fill ${g.barColor}" style="width: ${progress}%;"></div>
                             <div class="runner-emoji" style="left: ${progress}%;">
-                                ${g.score === 0 ? '🏆' : g.icon}
+                                ${g.icon}
                             </div>
                         </div>
                     </div>
@@ -204,7 +205,6 @@
                                 <button onclick="changeRegularScore(${g.id}, -1)" class="btn-touch bg-slate-200 text-slate-500 w-8 h-8 rounded-lg font-black text-lg">-</button>
                             </div>
                         </div>
-                        <!-- 進度條修復：增加顏色棒與 Emoji -->
                         <div class="progress-track mt-1 h-1.5 relative overflow-visible">
                             <div class="progress-fill ${g.barColor} opacity-40" style="width: ${progress}%"></div>
                             <div class="runner-emoji" style="left: ${progress}%; font-size: 18px;">
@@ -216,29 +216,28 @@
             }).join('');
         }
 
-        // 修改特殊組分數邏輯
         function handleSpecialScore(groupId, delta) {
             const teamA = specialGroups[0];
             const teamB = specialGroups[1];
-            const isDuel = Math.abs(teamA.score) === Math.abs(teamB.score);
+            
+            // 檢查當前是否處於拉鋸模式 (分數相同時啟動)
+            const isDuel = teamA.score === teamB.score;
 
             if (isDuel) {
-                // 拉鋸戰：一個靠近 0，另一個就遠離 0
+                // 拉鋸模式：一個加分，另一個就扣分
                 if (groupId === 'A') {
-                    if (delta > 0) { teamA.score = Math.min(0, teamA.score + 1); teamB.score = Math.min(50, teamB.score + 1); }
-                    else { teamA.score = Math.max(-50, teamA.score - 1); teamB.score = Math.max(0, teamB.score - 1); }
+                    teamA.score += delta;
+                    teamB.score -= delta;
                 } else {
-                    if (delta > 0) { teamB.score = Math.max(0, teamB.score - 1); teamA.score = Math.max(-50, teamA.score - 1); }
-                    else { teamB.score = Math.min(50, teamB.score + 1); teamA.score = Math.min(0, teamA.score + 1); }
+                    teamB.score += delta;
+                    teamA.score -= delta;
                 }
             } else {
-                // 獨立得分
-                if (groupId === 'A') teamA.score = Math.min(0, Math.max(-50, teamA.score + delta));
-                else {
-                    if (delta > 0) teamB.score = Math.max(0, teamB.score - 1);
-                    else teamB.score = Math.min(50, teamB.score + 1);
-                }
+                // 獨立得分模式：學霸增加/減少，壞蛋減少/增加
+                const group = specialGroups.find(g => g.id === groupId);
+                group.score += delta;
             }
+            
             render();
             playSound(delta > 0);
             if (teamA.score === 0 || teamB.score === 0) confetti({ particleCount: 100 });
@@ -253,7 +252,7 @@
 
         function playSound(isPlus) {
             const s = document.getElementById(isPlus ? 'plusSound' : 'minusSound');
-            s.currentTime = 0; s.play();
+            s.currentTime = 0; s.play().catch(() => {});
         }
 
         function editMembers(id) {
@@ -265,21 +264,29 @@
             }
         }
 
-        // 抽籤、計時、擲骰邏輯 (簡化)
         function startPick(mode) {
             const modal = document.getElementById('mainModal');
+            const title = document.getElementById('modalTitle');
+            const result = document.getElementById('modalResult');
+            
             modal.classList.remove('hidden');
+            let list = mode === 'student' ? students : rewards;
+            title.innerText = mode === 'student' ? "正在抽取學生" : "正在抽取獎懲";
+            
             let i = 0;
             const itv = setInterval(() => {
-                document.getElementById('modalResult').innerText = students[Math.floor(Math.random()*students.length)];
-                if(i++ > 12) { clearInterval(itv); confetti({ particleCount: 30 }); }
+                result.innerText = list[Math.floor(Math.random() * list.length)];
+                if(i++ > 12) { 
+                    clearInterval(itv); 
+                    confetti({ particleCount: 40, spread: 70, origin: { y: 0.6 } }); 
+                }
             }, 80);
         }
 
         function rollDiceDirect() {
             let i = 0;
             const itv = setInterval(() => {
-                const val = Math.floor(Math.random()*6)+1;
+                const val = Math.floor(Math.random() * 6) + 1;
                 document.getElementById('pickerDisplay').innerText = `🎲 擲出：${val}`;
                 if(i++ > 10) clearInterval(itv);
             }, 60);
