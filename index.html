@@ -176,6 +176,16 @@
         let isSyncing = false;
         let localChanged = false;
 
+        // 音效控制：將音量降低，避免過大聲
+        function playEffectSound(id) {
+            const sound = document.getElementById(id);
+            if (sound) {
+                sound.volume = 0.3; // 設置為 30% 音量
+                sound.currentTime = 0;
+                sound.play();
+            }
+        }
+
         // --- 骰子邏輯 ---
         function addDice() {
             const container = document.getElementById('diceContainer');
@@ -195,7 +205,7 @@
 
         function rollDice(diceElement) {
             diceElement.classList.add('dice-rolling');
-            document.getElementById('diceSound').play();
+            playEffectSound('diceSound');
             
             setTimeout(() => {
                 const val = Math.floor(Math.random() * 6) + 1;
@@ -237,7 +247,7 @@
                     if (timerSeconds <= 0) {
                         clearInterval(timerInterval);
                         timerInterval = null;
-                        document.getElementById('timerEndSound').play();
+                        playEffectSound('timerEndSound');
                         document.getElementById('timerToggle').innerText = "完成";
                     }
                 }, 1000);
@@ -309,15 +319,17 @@
             const container = document.getElementById('scoreboard');
             const sorted = [...groups].sort((a, b) => b.score - a.score);
             container.innerHTML = sorted.map(g => `
-                <div class="border-l-4 ${g.color} rounded shadow-sm px-3 flex items-center justify-between bg-white overflow-hidden">
-                    <div class="w-20 shrink-0">
-                        <h2 onclick="editName(${g.id})" class="text-xs font-bold text-slate-600 truncate cursor-pointer">${g.name}</h2>
+                <div class="border-l-4 ${g.color} rounded shadow-sm px-4 flex items-center justify-between bg-white overflow-hidden">
+                    <div class="w-28 shrink-0">
+                        <!-- 組名字體加大至 text-lg -->
+                        <h2 onclick="editName(${g.id})" class="text-lg font-black text-slate-700 truncate cursor-pointer leading-tight">${g.name}</h2>
                     </div>
-                    <div class="text-3xl font-black text-slate-800 tabular-nums flex-1 text-center">${g.score}</div>
+                    <!-- 得分數字加大至 text-5xl -->
+                    <div class="text-5xl font-black text-slate-800 tabular-nums flex-1 text-center">${g.score}</div>
                     <div class="flex gap-1 shrink-0">
-                        <button onclick="changeScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-10 h-10 rounded font-bold text-lg">+1</button>
-                        <button onclick="changeScore(${g.id}, 2)" class="btn-touch bg-amber-400 text-white w-10 h-10 rounded font-bold text-lg">+2</button>
-                        <button onclick="changeScore(${g.id}, -1)" class="btn-touch bg-slate-200 text-slate-500 w-8 h-10 rounded font-bold text-sm">-1</button>
+                        <button onclick="changeScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-12 h-12 rounded font-bold text-xl">+1</button>
+                        <button onclick="changeScore(${g.id}, 2)" class="btn-touch bg-amber-400 text-white w-12 h-12 rounded font-bold text-xl">+2</button>
+                        <button onclick="changeScore(${g.id}, -1)" class="btn-touch bg-slate-200 text-slate-500 w-10 h-12 rounded font-bold text-sm">-1</button>
                     </div>
                 </div>
             `).join('');
@@ -330,7 +342,7 @@
                 localChanged = true;
                 toggleSyncAlert(true);
                 render();
-                document.getElementById(delta > 0 ? 'plusSound' : 'minusSound').play();
+                playEffectSound(delta > 0 ? 'plusSound' : 'minusSound');
             }
         }
         function editName(id) {
@@ -342,7 +354,7 @@
             groups.forEach(g => g.score++);
             localChanged = true;
             render();
-            document.getElementById('plusSound').play();
+            playEffectSound('plusSound');
         }
         function resetScores() {
             if (confirm('確定重置？')) { groups.forEach(g => g.score = 0); localChanged = true; render(); }
