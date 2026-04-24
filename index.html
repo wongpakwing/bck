@@ -86,22 +86,16 @@
 
     <!-- 底部控制台 -->
     <footer class="bg-slate-800 rounded-b-xl p-2 grid grid-cols-2 gap-2 shadow-inner">
-        <!-- 抽籤 & 獎懲 區塊 -->
+        <!-- 左側：學生抽籤與骰子 -->
         <div class="bg-slate-700 rounded-lg px-2 py-1.5 flex flex-col gap-2 border border-slate-600">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2 min-w-0 flex-1">
                     <button onclick="configStudents()" title="設定學生名單" class="text-slate-400 hover:text-amber-400 shrink-0 transition">
                         <svg xmlns="http://www.w3.org/2003/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     </button>
-                    <div id="pickerDisplay" class="text-amber-400 font-bold text-sm truncate italic">點擊右側開始...</div>
-                    <button onclick="configRewards()" title="設定獎勵內容" class="text-slate-400 hover:text-rose-400 shrink-0 transition ml-1">
-                        <svg xmlns="http://www.w3.org/2003/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                    </button>
+                    <div id="pickerDisplay" class="text-amber-400 font-bold text-sm truncate italic">點擊抽學生...</div>
                 </div>
-                <div class="flex gap-1">
-                    <button onclick="startPick()" class="btn-touch bg-amber-500 text-white px-2 py-1 rounded text-[10px] font-bold shadow-md">抽學生</button>
-                    <button onclick="pickReward()" class="btn-touch bg-rose-500 text-white px-2 py-1 rounded text-[10px] font-bold shadow-md">抽獎懲</button>
-                </div>
+                <button onclick="startPick()" class="btn-touch bg-amber-500 text-white px-3 py-1 rounded text-[10px] font-bold shadow-md">抽學生</button>
             </div>
             
             <!-- 骰子列 -->
@@ -118,19 +112,33 @@
             </div>
         </div>
 
-        <!-- 計時器 區塊 -->
-        <div class="bg-slate-700 rounded-lg px-2 py-1.5 flex flex-col justify-between border border-slate-600">
-            <div class="flex items-center justify-between mb-1">
-                <div id="timerDisplay" class="font-mono font-black text-2xl text-white tracking-tighter">00:00</div>
-                <div class="flex gap-1">
-                    <button id="timerToggle" onclick="toggleTimer()" class="btn-touch bg-blue-500 text-white px-3 py-1 rounded text-[11px] font-bold shadow-md">開始</button>
-                    <button onclick="clearTimer()" class="text-[10px] bg-rose-900/50 text-rose-200 px-2 py-1 rounded border border-rose-800">重設</button>
+        <!-- 右側：獎懲與計時器 (整合區) -->
+        <div class="bg-slate-700 rounded-lg px-2 py-1.5 flex flex-col gap-2 border border-slate-600">
+            <!-- 獎懲抽籤列 (佔據原本計時器上方) -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 min-w-0 flex-1">
+                    <button onclick="configRewards()" title="設定獎勵內容" class="text-slate-400 hover:text-rose-400 shrink-0 transition">
+                        <svg xmlns="http://www.w3.org/2003/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    </button>
+                    <div id="rewardDisplay" class="text-rose-400 font-bold text-sm truncate italic">點擊抽獎懲...</div>
                 </div>
+                <button onclick="pickReward()" class="btn-touch bg-rose-500 text-white px-3 py-1 rounded text-[10px] font-bold shadow-md">抽獎懲</button>
             </div>
-            <div class="flex gap-1 justify-between mt-1 pt-2 border-t border-slate-600">
-                <button onclick="addTimer(30)" class="bg-slate-600 hover:bg-slate-500 text-white text-[10px] py-1 px-2 rounded">+30s</button>
-                <button onclick="addTimer(60)" class="bg-slate-600 hover:bg-slate-500 text-white text-[10px] py-1 px-2 rounded">+1m</button>
-                <button onclick="addTimer(300)" class="bg-slate-600 hover:bg-slate-500 text-white text-[10px] py-1 px-2 rounded">+5m</button>
+
+            <!-- 計時器主體 (移至下方) -->
+            <div class="border-t border-slate-600 pt-1.5 flex flex-col justify-between h-full">
+                <div class="flex items-center justify-between mb-1">
+                    <div id="timerDisplay" class="font-mono font-black text-2xl text-white tracking-tighter">00:00</div>
+                    <div class="flex gap-1">
+                        <button id="timerToggle" onclick="toggleTimer()" class="btn-touch bg-blue-500 text-white px-3 py-1 rounded text-[11px] font-bold shadow-md">開始</button>
+                        <button onclick="clearTimer()" class="text-[10px] bg-rose-900/50 text-rose-200 px-2 py-1 rounded border border-rose-800">重設</button>
+                    </div>
+                </div>
+                <div class="flex gap-1 justify-between">
+                    <button onclick="addTimer(30)" class="bg-slate-600 hover:bg-slate-500 text-white text-[9px] py-1 px-1.5 rounded flex-1">+30s</button>
+                    <button onclick="addTimer(60)" class="bg-slate-600 hover:bg-slate-500 text-white text-[9px] py-1 px-1.5 rounded flex-1">+1m</button>
+                    <button onclick="addTimer(300)" class="bg-slate-600 hover:bg-slate-500 text-white text-[9px] py-1 px-1.5 rounded flex-1">+5m</button>
+                </div>
             </div>
         </div>
     </footer>
@@ -142,7 +150,7 @@
             <div class="h-24 flex items-center justify-center bg-slate-50 rounded-xl border-4 border-slate-100 overflow-hidden relative">
                 <div id="modalResult" class="text-2xl font-black text-slate-800 px-2">...</div>
             </div>
-            <button onclick="closePicker()" class="w-full bg-slate-800 text-white py-3 rounded-lg font-bold mt-6 shadow-lg active:scale-95 transition">收下結果</button>
+            <button onclick="closePicker()" class="w-full bg-slate-800 text-white py-3 rounded-lg font-bold mt-6 shadow-lg active:scale-95 transition">確認結果</button>
         </div>
     </div>
 
@@ -183,7 +191,7 @@
                 if (!isNaN(val)) total += val;
                 else if (d.innerText === '?') stillRolling = true;
             });
-            display.innerText = stillRolling ? "ROLL..." : `合計: ${total}`;
+            display.innerText = stillRolling ? "" : `合計: ${total}`; // 移除 ROLL... 字眼
         }
 
         function addDice() {
@@ -255,11 +263,20 @@
             }
         }
 
-        // --- 抽籤與獎勵設定 ---
-        function startPick() { runModalAnimation("隨機抽學生", students); }
-        function pickReward() { runModalAnimation("隨機獎懲抽獎", rewards); }
+        // --- 抽籤與獎勵邏輯 ---
+        function startPick() { 
+            runModalAnimation("隨機抽學生", students, (final) => {
+                document.getElementById('pickerDisplay').innerText = `學生: ${final}`;
+            }); 
+        }
+        
+        function pickReward() { 
+            runModalAnimation("隨機獎懲抽獎", rewards, (final) => {
+                document.getElementById('rewardDisplay').innerText = `獎勵: ${final}`;
+            }); 
+        }
 
-        function runModalAnimation(title, list) {
+        function runModalAnimation(title, list, onComplete) {
             if (list.length === 0) return;
             const modal = document.getElementById('pickerModal');
             const resultDiv = document.getElementById('modalResult');
@@ -275,7 +292,7 @@
                     clearInterval(interval);
                     const final = list[Math.floor(Math.random() * list.length)];
                     resultDiv.innerText = final;
-                    document.getElementById('pickerDisplay').innerText = `最後結果: ${final}`;
+                    onComplete(final);
                     confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#fbbf24', '#f43f5e', '#3b82f6'] });
                 }
             }, 80);
@@ -319,7 +336,6 @@
 
         function render() {
             const container = document.getElementById('scoreboard');
-            // 按分數高低渲染，創造競爭感
             const sorted = [...groups].sort((a, b) => b.score - a.score);
             container.innerHTML = sorted.map(g => {
                 const progress = Math.min(100, (g.score / scoreGoal) * 100);
@@ -327,9 +343,7 @@
                 
                 return `
                 <div class="border-l-4 ${g.color} rounded shadow-sm px-4 flex flex-col justify-center relative overflow-hidden group">
-                    <!-- 賽跑跑道背景 -->
                     <div class="absolute inset-0 track-bg opacity-30"></div>
-                    
                     <div class="flex items-center justify-between z-10">
                         <div class="w-24 shrink-0">
                             <h2 onclick="editName(${g.id})" class="text-[11px] font-black text-slate-500 truncate cursor-pointer hover:text-blue-600">${g.name}</h2>
@@ -342,8 +356,6 @@
                             <button onclick="changeScore(${g.id}, -1)" class="btn-touch bg-slate-200 text-slate-500 w-9 h-9 rounded-lg font-bold text-lg shadow-sm">-</button>
                         </div>
                     </div>
-                    
-                    <!-- 分組進度條（賽跑跑道） -->
                     <div class="absolute bottom-0 left-0 h-2 bg-slate-200/50 w-full z-0">
                         <div class="progress-bar h-full ${g.barColor}" style="width: ${progress}%">
                             <span class="runner-icon">${isWinner ? '🏆' : g.icon}</span>
@@ -360,7 +372,6 @@
                 if (group.score < 0) group.score = 0;
                 render();
                 playEffectSound(delta > 0 ? 'plusSound' : 'minusSound');
-                
                 if (group.score >= scoreGoal && delta > 0) {
                     confetti({ particleCount: 50, spread: 40, origin: { y: 0.5 } });
                 }
