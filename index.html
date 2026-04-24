@@ -308,4 +308,32 @@
         function render() {
             const container = document.getElementById('scoreboard');
             const sorted = [...groups].sort((a, b) => b.score - a.score);
-            container.innerHTML = sorted.map(g
+            container.innerHTML = sorted.map(g => `
+                <div class="border-l-4 ${g.color} rounded shadow-sm px-3 flex items-center justify-between bg-white overflow-hidden">
+                    <div class="w-20 shrink-0">
+                        <h2 onclick="editName(${g.id})" class="text-xs font-bold text-slate-600 truncate cursor-pointer">${g.name}</h2>
+                    </div>
+                    <div class="text-3xl font-black text-slate-800 tabular-nums flex-1 text-center">
+                        ${g.score}
+                    </div>
+                    <div class="flex gap-1 shrink-0">
+                        <button onclick="changeScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-10 h-10 rounded font-bold text-lg">+1</button>
+                        <button onclick="changeScore(${g.id}, 2)" class="btn-touch bg-amber-400 text-white w-10 h-10 rounded font-bold text-lg">+2</button>
+                        <button onclick="changeScore(${g.id}, -1)" class="btn-touch bg-slate-200 text-slate-500 w-8 h-10 rounded font-bold text-sm">-1</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.onload = () => {
+            const savedG = localStorage.getItem('cls_scores');
+            const savedS = localStorage.getItem('cls_stu');
+            if (savedG) groups = JSON.parse(savedG);
+            else groups = JSON.parse(JSON.stringify(defaultGroups));
+            if (savedS) students = JSON.parse(savedS);
+            render();
+            manualSync();
+        };
+    </script>
+</body>
+</html>
