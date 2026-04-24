@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; touch-action: manipulation; }
-        #special-zone { height: 230px; shrink: 0; }
+        #special-zone { height: 180px; shrink: 0; }
         .btn-touch:active { transform: scale(0.92); }
         .track-bg {
             background-image: repeating-linear-gradient(90deg, transparent, transparent 19%, rgba(0,0,0,0.05) 20%);
@@ -25,21 +25,21 @@
         }
         .runner-icon {
             position: absolute; right: 0; top: 50%;
-            transform: translate(50%, -60%); font-size: 28px;
+            transform: translate(50%, -60%); font-size: 24px;
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .special-card {
             background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-            border-top: 6px solid;
+            border-top: 4px solid;
         }
         .member-tag {
             background: rgba(255, 255, 255, 0.6);
             border: 1px solid rgba(0, 0, 0, 0.05);
-            padding: 2px 6px;
+            padding: 1px 4px;
             border-radius: 4px;
-            font-size: 11px;
+            font-size: 9px;
             display: inline-block;
-            margin: 2px;
+            margin: 1px;
         }
     </style>
 </head>
@@ -61,25 +61,34 @@
         </div>
     </header>
 
-    <!-- 置頂特種競賽區 -->
+    <!-- 置頂特種競賽區 (縮小高度並加入進度條) -->
     <div id="special-zone" class="grid grid-cols-2 gap-2 p-2 bg-slate-800 border-x border-slate-300">
         <!-- JS Render -->
     </div>
 
-    <!-- 常規五組賽跑區 - 增加高度佔滿剩餘空間 -->
+    <!-- 常規五組賽跑區 -->
     <div id="regular-zone" class="bg-slate-100 p-2 border-x border-slate-300 grid grid-rows-5 gap-2 flex-1 no-scrollbar overflow-hidden">
         <!-- JS Render -->
     </div>
 
-    <!-- 底部控制台 - 佈局重組 -->
+    <!-- 底部控制台 -->
     <footer class="bg-slate-900 rounded-b-xl p-2 flex flex-col gap-2 shrink-0">
         <div class="flex gap-2">
-            <!-- 左方空間：抽學生、擲骰子 -->
+            <!-- 左方空間：抽學生、直顯骰子 -->
             <div class="flex-1 bg-slate-800 rounded-lg p-2 border border-slate-700 flex flex-col gap-1">
-                <div id="pickerDisplay" class="text-amber-400 font-bold text-xs italic truncate mb-1">點擊抽人/擲骰...</div>
+                <div class="flex justify-between items-center mb-1 h-6">
+                    <div id="pickerDisplay" class="text-amber-400 font-bold text-[10px] italic truncate">點擊功能按鈕...</div>
+                    <div id="diceResultArea" class="flex gap-1 items-center bg-slate-700 px-2 rounded hidden">
+                        <span id="diceIcons" class="text-white text-lg"></span>
+                        <span id="diceSum" class="text-blue-400 font-black text-xs ml-1"></span>
+                    </div>
+                </div>
                 <div class="flex gap-1">
                     <button onclick="startPick('student')" class="btn-touch flex-1 bg-amber-500 text-white py-2 rounded text-[11px] font-bold">抽學生</button>
-                    <button onclick="rollDice()" class="btn-touch flex-1 bg-rose-500 text-white py-2 rounded text-[11px] font-bold">🎲 骰子+1</button>
+                    <div class="flex-1 flex gap-0.5">
+                        <button onclick="rollDiceDirect()" class="btn-touch flex-[2] bg-rose-500 text-white py-2 rounded text-[11px] font-bold">🎲 擲骰</button>
+                        <button onclick="addDiceCount()" class="btn-touch flex-1 bg-rose-700 text-white py-2 rounded text-[11px] font-bold">+1</button>
+                    </div>
                 </div>
             </div>
             
@@ -100,7 +109,7 @@
         </div>
     </footer>
 
-    <!-- 全用動態 Modal -->
+    <!-- 僅抽籤用的 Modal -->
     <div id="mainModal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl p-6 w-full max-w-xs text-center shadow-2xl">
             <h3 id="modalTitle" class="text-slate-400 text-[10px] font-bold mb-4 uppercase italic">抽籤中</h3>
@@ -120,8 +129,8 @@
 
     <script>
         let specialGroups = [
-            { id: 'A', name: '學霸聯盟', score: -50, color: 'border-red-500', icon: '🦸', members: ['學生A1', '學生A2'] },
-            { id: 'B', name: '壞蛋聯盟', score: 50, color: 'border-blue-500', icon: '😈', members: ['學生B1', '學生B2'] }
+            { id: 'A', name: '學霸聯盟', score: -50, color: 'border-red-500', barColor: 'bg-red-500', icon: '🦸', members: ['學生A1', '學生A2'], startScore: -50 },
+            { id: 'B', name: '壞蛋聯盟', score: 50, color: 'border-blue-500', barColor: 'bg-blue-500', icon: '😈', members: ['學生B1', '學生B2'], startScore: 50 }
         ];
 
         let regularGroups = [
@@ -146,27 +155,33 @@
             const specialContainer = document.getElementById('special-zone');
             specialContainer.innerHTML = specialGroups.map(g => {
                 const isWinner = g.score === 0;
+                // 計算進度：朝 0 靠近。如果是 A (-50 -> 0)，進度是 (score - start) / (0 - start)
+                const progress = Math.min(100, Math.max(0, ((g.score - g.startScore) / (0 - g.startScore)) * 100));
+                
                 return `
-                    <div class="special-card ${g.color} rounded-xl p-3 flex flex-col justify-between relative shadow-lg overflow-hidden h-full">
+                    <div class="special-card ${g.color} rounded-xl p-2 flex flex-col justify-between relative shadow-lg overflow-hidden h-full">
                         <div class="flex justify-between items-start">
                             <div class="flex flex-col">
-                                <span onclick="renameGroup('${g.id}', true)" class="text-[10px] font-black text-slate-500 border-b border-dotted cursor-pointer uppercase tracking-wider">${g.name}</span>
-                                <div onclick="editGroupMembers('${g.id}')" class="mt-1 flex flex-wrap max-h-[40px] overflow-y-auto cursor-pointer">
-                                    ${g.members.length > 0 ? g.members.map(m => `<span class="member-tag">${m}</span>`).join('') : '<span class="text-[9px] text-slate-400">點擊新增</span>'}
+                                <span onclick="renameGroup('${g.id}', true)" class="text-[9px] font-black text-slate-500 border-b border-dotted cursor-pointer uppercase tracking-wider">${g.name}</span>
+                                <div onclick="editGroupMembers('${g.id}')" class="mt-0.5 flex flex-wrap max-h-[25px] overflow-hidden cursor-pointer">
+                                    ${g.members.length > 0 ? g.members.map(m => `<span class="member-tag">${m}</span>`).join('') : '<span class="text-[8px] text-slate-400">點擊新增</span>'}
                                 </div>
                             </div>
-                            <span class="text-2xl">${isWinner ? '🏆' : g.icon}</span>
+                            <span class="text-xl">${isWinner ? '🏆' : g.icon}</span>
                         </div>
-                        <div class="text-5xl font-black text-center my-1 tabular-nums ${isWinner ? 'text-emerald-500 scale-110' : 'text-slate-800'} transition-all">
+                        <div class="text-4xl font-black text-center my-0.5 tabular-nums ${isWinner ? 'text-emerald-500 scale-110' : 'text-slate-800'} transition-all">
                             ${g.score}
                         </div>
                         <div class="flex gap-1 z-10">
                             ${g.id === 'A' ? 
-                                `<button onclick="changeSpecialScore('A', 5)" class="flex-1 bg-rose-500 text-white font-bold py-2 rounded-lg text-lg">+5</button>
-                                 <button onclick="changeSpecialScore('A', 1)" class="flex-1 bg-rose-400 text-white font-bold py-2 rounded-lg text-lg">+1</button>` :
-                                `<button onclick="changeSpecialScore('B', -5)" class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg text-lg">-5</button>
-                                 <button onclick="changeSpecialScore('B', -1)" class="flex-1 bg-blue-400 text-white font-bold py-2 rounded-lg text-lg">-1</button>`
+                                `<button onclick="changeSpecialScore('A', 5)" class="flex-1 bg-rose-500 text-white font-bold py-1.5 rounded-lg text-sm">+5</button>
+                                 <button onclick="changeSpecialScore('A', 1)" class="flex-1 bg-rose-400 text-white font-bold py-1.5 rounded-lg text-sm">+1</button>` :
+                                `<button onclick="changeSpecialScore('B', -5)" class="flex-1 bg-blue-500 text-white font-bold py-1.5 rounded-lg text-sm">-5</button>
+                                 <button onclick="changeSpecialScore('B', -1)" class="flex-1 bg-blue-400 text-white font-bold py-1.5 rounded-lg text-sm">-1</button>`
                             }
+                        </div>
+                        <div class="progress-container h-[6px]">
+                            <div class="progress-bar ${g.barColor}" style="width: ${progress}%"><span class="runner-icon" style="font-size:16px;">${isWinner ? '🏆' : g.icon}</span></div>
                         </div>
                     </div>
                 `;
@@ -219,7 +234,6 @@
             const rePickBtn = document.getElementById('rePickBtn');
             const pool = mode === 'student' ? students : rewards;
             
-            diceCount = 1; 
             title.innerText = mode === 'student' ? '抽籤中...' : '獎懲抽取中...';
             modal.classList.remove('hidden');
             rePickBtn.innerText = "再抽一次";
@@ -238,34 +252,44 @@
             }, 80);
         }
 
-        function rollDice() {
-            const modal = document.getElementById('mainModal');
-            const res = document.getElementById('modalResult');
-            const rePickBtn = document.getElementById('rePickBtn');
-            document.getElementById('modalTitle').innerText = `擲骰子 (${diceCount} 粒)...`;
-            modal.classList.remove('hidden');
+        // 直接在介面顯示骰子，不再彈窗
+        function rollDiceDirect() {
+            const area = document.getElementById('diceResultArea');
+            const iconsSpan = document.getElementById('diceIcons');
+            const sumSpan = document.getElementById('diceSum');
+            const pickerLabel = document.getElementById('pickerDisplay');
             
-            rePickBtn.innerText = "骰子 +1";
-            rePickBtn.onclick = () => { diceCount++; rollDice(); };
+            area.classList.remove('hidden');
+            pickerLabel.innerText = `正在擲 ${diceCount} 粒骰子...`;
 
             let i = 0;
             const diceIcons = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
             const itv = setInterval(() => {
-                let temp = [];
-                for(let d=0; d<diceCount; d++) temp.push(diceIcons[Math.floor(Math.random()*6)]);
-                res.innerHTML = temp.map(icon => `<span class="text-4xl">${icon}</span>`).join('');
+                let tempIcons = "";
+                for(let d=0; d<diceCount; d++) tempIcons += diceIcons[Math.floor(Math.random()*6)];
+                iconsSpan.innerText = tempIcons;
+                sumSpan.innerText = "";
+
                 if(i++ > 10) { 
                     clearInterval(itv); 
-                    let final = [];
+                    let finalIcons = "";
                     let sum = 0;
                     for(let d=0; d<diceCount; d++) {
                         const val = Math.floor(Math.random()*6)+1;
                         sum += val;
-                        final.push(`<div class="bg-white p-2 rounded border border-slate-200"><span class="text-4xl">${diceIcons[val-1]}</span></div>`);
+                        finalIcons += diceIcons[val-1];
                     }
-                    res.innerHTML = `<div class="flex flex-wrap justify-center gap-2">${final.join('')}</div>${diceCount > 1 ? `<div class='w-full mt-2 font-bold text-blue-600 text-sm'>總和: ${sum}</div>` : ''}`;
+                    iconsSpan.innerText = finalIcons;
+                    sumSpan.innerText = diceCount > 1 ? `(${sum})` : "";
+                    pickerLabel.innerText = "擲骰結果已顯示於右方";
                 }
-            }, 100);
+            }, 80);
+        }
+
+        function addDiceCount() {
+            diceCount++;
+            document.getElementById('pickerDisplay').innerText = `骰子數量已設為: ${diceCount}`;
+            rollDiceDirect(); // 設定後直接擲一次
         }
 
         function closeModal() { document.getElementById('mainModal').classList.add('hidden'); }
