@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課室計分榜 - 強制同步版</title>
+    <title>課室計分榜 - 穩定同步版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; touch-action: manipulation; }
@@ -29,8 +29,8 @@
     <header class="bg-white rounded-xl shadow-sm px-3 py-2 mb-2 flex justify-between items-center relative">
         <div class="flex items-center gap-3">
             <div>
-                <h1 class="font-bold text-slate-800 text-sm">實時同步計分榜 (強制更新)</h1>
-                <div id="syncStatus" class="text-[9px] text-blue-500 font-medium">初始化中...</div>
+                <h1 class="font-bold text-slate-800 text-sm">實時同步計分榜 (穩定版)</h1>
+                <div id="syncStatus" class="text-[9px] text-blue-500 font-medium">連線中...</div>
             </div>
             <div id="saveStatus" class="text-[10px] text-blue-600 font-bold opacity-0">● 雲端已更新</div>
         </div>
@@ -62,36 +62,45 @@
         let groups = [];
         let isSaving = false;
         let lastCloudString = "";
+        let failureCount = 0;
 
-        // 1. 強制從雲端抓取 (加入 timestamp 繞過緩存)
+        // 1. 強化同步邏輯：加入延遲與重試機制
         async function fetchFromCloud() {
+            // 如果正在儲存，跳過這一次檢查
+            if (isSaving) return;
+
             try {
-                // 加入隨機參數防止瀏覽器緩存
                 const timestamp = new Date().getTime();
                 const response = await fetch(`${API_URL}?t=${timestamp}`, {
-                    cache: "no-store",
-                    headers: { 'Cache-Control': 'no-cache' }
+                    cache: "no-store"
                 });
                 
-                if (!response.ok) throw new Error();
+                if (!response.ok) throw new Error("Server Error");
                 const cloudData = await response.json();
                 
                 const cloudString = JSON.stringify(cloudData);
                 
-                // 比對資料，若不同則更新
-                if (cloudString !== lastCloudString && !isSaving) {
+                if (cloudString !== lastCloudString) {
                     if (Array.isArray(cloudData) && cloudData.length === 7) {
                         groups = cloudData;
-                        // 確保名稱正確
+                        // 名稱守衛
                         groups[5].name = '🦸‍♂️超人聯盟';
                         groups[6].name = '😈壞蛋聯盟';
                         lastCloudString = cloudString;
                         render();
+                        failureCount = 0; // 重置失敗次數
                         document.getElementById('syncStatus').innerText = "最後同步: " + new Date().toLocaleTimeString();
+                        document.getElementById('syncStatus').classList.replace('text-amber-500', 'text-blue-500');
                     }
                 }
             } catch (e) {
-                document.getElementById('syncStatus').innerText = "連線異常，正在重試...";
+                failureCount++;
+                console.warn(`同步失敗 (${failureCount})`);
+                // 根據失敗次數顯示不同訊息
+                if (failureCount > 3) {
+                    document.getElementById('syncStatus').innerText = "雲端繁忙，正在嘗試重連...";
+                    document.getElementById('syncStatus').classList.replace('text-blue-500', 'text-amber-500');
+                }
             }
         }
 
@@ -114,12 +123,18 @@
             } catch (e) {
                 console.error("上傳失敗");
             } finally {
-                isSaving = false;
+                // 稍微延遲一下再解鎖，讓伺服器有時間更新快取
+                setTimeout(() => { isSaving = false; }, 500);
             }
         }
 
-        // 每 2 秒強制檢查一次
-        setInterval(fetchFromCloud, 2000);
+        // 定時檢查器 (改為遞迴調用以獲得更好的控制)
+        async function syncLoop() {
+            await fetchFromCloud();
+            // 如果失敗次數多，變慢頻率以減輕壓力；正常時則 2.5 秒一次
+            const nextDelay = failureCount > 2 ? 5000 : 2500;
+            setTimeout(syncLoop, nextDelay);
+        }
 
         function showSaveIndicator() {
             const indicator = document.getElementById('saveStatus');
@@ -190,11 +205,12 @@
             `).join('');
         }
 
-        window.onload = async () => {
-            await fetchFromCloud();
-            if (groups.length === 0) {
-                const saved = localStorage.getItem('classroom_scores_final_v7');
-                groups = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(defaultGroups));
+        window.onload = () => {
+            syncLoop();
+            // 本地優先備份
+            const saved = localStorage.getItem('classroom_scores_final_v7');
+            if (saved && groups.length === 0) {
+                groups = JSON.parse(saved);
                 render();
             }
         };
