@@ -11,7 +11,7 @@
         body { font-family: 'Noto Sans TC', sans-serif; touch-action: manipulation; }
         
         #scoreboard { 
-            height: calc(100vh - 145px); 
+            height: calc(100vh - 165px); 
             display: grid;
             grid-template-rows: repeat(7, 1fr);
             gap: 4px;
@@ -52,15 +52,15 @@
 
         /* --- 骰子樣式 --- */
         .dice {
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             background: white;
             border: 2px solid #cbd5e1;
-            border-radius: 8px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: 900;
             color: #1e293b;
             cursor: pointer;
@@ -109,14 +109,16 @@
                 </div>
                 <button onclick="startPick()" class="btn-touch bg-amber-500 text-white px-2 py-1 rounded text-[10px] font-bold shrink-0 ml-2">隨機抽籤</button>
             </div>
-            <!-- 骰子列 -->
-            <div class="flex items-center gap-2 border-t border-slate-600 pt-1.5 overflow-x-auto no-scrollbar">
-                <div id="diceContainer" class="flex gap-2"></div>
-                <div class="flex gap-1 ml-auto items-center">
-                    <div id="diceTotalDisplay" class="bg-slate-900 text-amber-400 px-2 py-0.5 rounded text-[10px] font-black border border-slate-500 hidden">合計: 0</div>
-                    <button onclick="addDice()" class="bg-indigo-500 text-white px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap">骰子 +1</button>
-                    <button onclick="rollAllDice()" class="bg-amber-600 text-white px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap">打骰</button>
-                    <button onclick="clearDice()" class="bg-slate-500 text-slate-200 px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap">清空</button>
+            <!-- 骰子列：改為 flex-wrap 並多開一行 -->
+            <div class="flex flex-col gap-1.5 border-t border-slate-600 pt-1.5">
+                <div id="diceContainer" class="flex gap-2 overflow-x-auto no-scrollbar py-0.5"></div>
+                <div class="flex gap-1 items-center justify-between">
+                    <div id="diceTotalDisplay" class="bg-slate-900 text-amber-400 px-2 py-0.5 rounded text-[10px] font-black border border-slate-500 hidden whitespace-nowrap">合計: 0</div>
+                    <div class="flex gap-1 ml-auto">
+                        <button onclick="addDice()" class="bg-indigo-500 text-white px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap">骰子+1</button>
+                        <button onclick="rollAllDice()" class="bg-amber-600 text-white px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap">打骰</button>
+                        <button onclick="clearDice()" class="bg-slate-500 text-slate-200 px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap">清空</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -194,7 +196,7 @@
 
         function addDice() {
             const container = document.getElementById('diceContainer');
-            if (container.children.length >= 6) return; 
+            if (container.children.length >= 10) return; // 稍微放寬上限
             
             const dice = document.createElement('div');
             dice.className = 'dice';
@@ -325,14 +327,14 @@
             const sorted = [...groups].sort((a, b) => b.score - a.score);
             container.innerHTML = sorted.map(g => `
                 <div class="border-l-4 ${g.color} rounded shadow-sm px-4 flex items-center justify-between bg-white overflow-hidden">
-                    <div class="w-28 shrink-0">
-                        <h2 onclick="editName(${g.id})" class="text-lg font-black text-slate-700 truncate cursor-pointer leading-tight">${g.name}</h2>
+                    <div class="w-24 shrink-0">
+                        <h2 onclick="editName(${g.id})" class="text-base font-black text-slate-700 truncate cursor-pointer leading-tight">${g.name}</h2>
                     </div>
-                    <div class="text-5xl font-black text-slate-800 tabular-nums flex-1 text-center">${g.score}</div>
+                    <div class="text-4xl font-black text-slate-800 tabular-nums flex-1 text-center">${g.score}</div>
                     <div class="flex gap-1 shrink-0">
-                        <button onclick="changeScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-12 h-12 rounded font-bold text-xl">+1</button>
-                        <button onclick="changeScore(${g.id}, 2)" class="btn-touch bg-amber-400 text-white w-12 h-12 rounded font-bold text-xl">+2</button>
-                        <button onclick="changeScore(${g.id}, -1)" class="btn-touch bg-slate-200 text-slate-500 w-10 h-12 rounded font-bold text-sm">-1</button>
+                        <button onclick="changeScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-10 h-10 rounded font-bold text-lg">+1</button>
+                        <button onclick="changeScore(${g.id}, 2)" class="btn-touch bg-amber-400 text-white w-10 h-10 rounded font-bold text-lg">+2</button>
+                        <button onclick="changeScore(${g.id}, -1)" class="btn-touch bg-slate-200 text-slate-500 w-8 h-10 rounded font-bold text-xs">-1</button>
                     </div>
                 </div>
             `).join('');
