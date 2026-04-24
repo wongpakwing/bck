@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課室計分榜 - 連動歸零賽制</title>
+    <title>課室計分榜 - 動態拉鋸賽</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
@@ -17,34 +17,40 @@
         .progress-container {
             position: absolute;
             bottom: 0; left: 0; right: 0;
-            height: 10px; background: rgba(226, 232, 240, 0.5);
+            height: 12px; background: rgba(226, 232, 240, 0.5);
             z-index: 5;
+            /* 增加左右內邊距，防止圖標超出邊界被切掉 */
+            padding: 0 16px;
+        }
+        .progress-relative-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
         }
         .progress-bar {
             height: 100%; transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
-            position: relative;
+            position: absolute;
             z-index: 10;
         }
         .runner-icon {
             position: absolute; 
             top: 50%;
             transform: translateY(-50%); 
-            font-size: 26px;
-            z-index: 50; 
+            font-size: 28px;
+            z-index: 60; 
             line-height: 1;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
             pointer-events: none;
+            /* 確保圖標始終在最上層 */
         }
-        /* 學霸圖示靠右 */
-        .icon-right { right: -14px; }
-        /* 壞蛋圖示靠左 (對應從右往左長) */
-        .icon-left { left: -14px; }
+        .icon-right { right: -18px; }
+        .icon-left { left: -18px; }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .special-card {
             background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
             border-top: 4px solid;
-            overflow: visible !important;
+            overflow: visible !important; /* 確保圖標可以稍微超出卡片邊界 */
         }
         .member-tag {
             background: rgba(255, 255, 255, 0.6);
@@ -69,30 +75,36 @@
             justify-content: center;
             min-width: 40px;
         }
+        .status-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 99px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body class="bg-slate-200 overflow-hidden px-2 pt-2 h-screen flex flex-col">
     <!-- 頁首 -->
     <header class="bg-white/90 backdrop-blur rounded-t-xl px-4 py-2 flex justify-between items-center border-b border-slate-300 shadow-sm shrink-0">
         <div class="flex flex-col">
-            <h1 class="font-bold text-slate-800 text-sm">課室雙賽制計分榜</h1>
+            <h1 class="font-bold text-slate-800 text-sm">課室計分榜 (拉鋸模式)</h1>
             <div id="goalIndicator" class="text-[10px] text-blue-600 font-medium">常規賽目標: 20分</div>
         </div>
         <div class="flex gap-2">
-            <button onclick="setGoal()" class="bg-blue-50 text-blue-600 px-2 py-1 rounded text-[10px] border border-blue-200 font-bold">設定目標</button>
-            <button onclick="editStudents()" class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] border border-slate-300">總名單</button>
-            <button onclick="editRewards()" class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] border border-slate-300">獎懲清單</button>
+            <button onclick="setGoal()" class="bg-blue-50 text-blue-600 px-2 py-1 rounded text-[10px] border border-blue-200 font-bold">目標</button>
+            <button onclick="editStudents()" class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] border border-slate-300">學生</button>
+            <button onclick="editRewards()" class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] border border-slate-300">獎勵</button>
             <button onclick="addOneToAllRegular()" class="bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-sm">常規+1</button>
-            <button onclick="resetAll()" class="bg-slate-400 text-white px-2 py-1 rounded-full text-[10px]">重置分數</button>
+            <button onclick="resetAll()" class="bg-slate-400 text-white px-2 py-1 rounded-full text-[10px]">重置</button>
         </div>
     </header>
 
-    <!-- 置頂特種競賽區 -->
+    <!-- 特種競賽區 -->
     <div id="special-zone" class="grid grid-cols-2 gap-2 p-2 bg-slate-800 border-x border-slate-300">
         <!-- JS Render -->
     </div>
 
-    <!-- 常規五組賽跑區 -->
+    <!-- 常規區 -->
     <div id="regular-zone" class="bg-slate-100 p-2 border-x border-slate-300 grid grid-rows-5 gap-2 flex-1 no-scrollbar overflow-hidden">
         <!-- JS Render -->
     </div>
@@ -102,7 +114,7 @@
         <div class="flex gap-2">
             <div class="flex-1 bg-slate-800 rounded-lg p-2 border border-slate-700 flex flex-col gap-1">
                 <div class="flex justify-between items-center mb-1 h-6">
-                    <div id="pickerDisplay" class="text-amber-400 font-bold text-[10px] italic truncate">點擊功能按鈕...</div>
+                    <div id="pickerDisplay" class="text-amber-400 font-bold text-[10px] italic">準備抽籤...</div>
                     <div id="diceResultArea" class="flex gap-1 items-center bg-slate-700 px-2 rounded hidden">
                         <span id="diceIcons" class="flex gap-1"></span>
                     </div>
@@ -148,9 +160,10 @@
     <audio id="timerEndSound" src="https://assets.mixkit.co/active_storage/sfx/1070/1070-preview.mp3"></audio>
 
     <script>
+        // 設定兩隊初始為不同分，朝 0 前進
         let specialGroups = [
-            { id: 'A', name: '學霸聯盟', score: -50, color: 'border-red-500', barColor: 'bg-red-500', icon: '🦸', members: ['學生A1', '學生A2'], startScore: -50 },
-            { id: 'B', name: '壞蛋聯盟', score: 50, color: 'border-blue-500', barColor: 'bg-blue-500', icon: '😈', members: ['學生B1', '學生B2'], startScore: 50 }
+            { id: 'A', name: '學霸聯盟', score: -30, color: 'border-red-500', barColor: 'bg-red-500', icon: '🦸', members: [], startScore: -30, target: 0 },
+            { id: 'B', name: '壞蛋聯盟', score: -30, color: 'border-blue-500', barColor: 'bg-blue-500', icon: '😈', members: [], startScore: -30, target: 0 }
         ];
 
         let regularGroups = [
@@ -162,53 +175,50 @@
         ];
 
         let students = ["學生1", "學生2", "學生3", "學生4", "學生5"];
-        let rewards = ["加 1 分", "加 2 分", "減 1 分", "免死金牌", "表演節目", "小禮物", "坐前排"];
+        let rewards = ["加 1 分", "加 2 分", "減 1 分", "表演節目", "免死金牌"];
         let scoreGoal = 20;
 
-        function playSound(isPlus) {
-            const sound = document.getElementById(isPlus ? 'plusSound' : 'minusSound');
-            if(sound) { sound.volume = 0.3; sound.currentTime = 0; sound.play(); }
-        }
-
         function render() {
+            const isDuel = specialGroups[0].score === specialGroups[1].score;
             const specialContainer = document.getElementById('special-zone');
+            
             specialContainer.innerHTML = specialGroups.map(g => {
-                const isWinner = g.score === 0;
-                let progress = 0;
-                let styleStr = "";
+                const isWinner = g.score >= 0;
+                let progress = Math.min(100, Math.max(0, ((g.score - g.startScore) / (g.target - g.startScore)) * 100));
+                let barStyle = "";
 
                 if (g.id === 'A') {
-                    // 學霸：-50 -> 0，進度條從左往右長
-                    progress = Math.min(100, Math.max(0, ((g.score - g.startScore) / (0 - g.startScore)) * 100));
-                    styleStr = `width: ${progress}%; left: 0;`;
+                    barStyle = `width: ${progress}%; left: 0;`;
                 } else {
-                    // 壞蛋：50 -> 0，進度條從右往左長
-                    progress = Math.min(100, Math.max(0, ((g.startScore - g.score) / g.startScore) * 100));
-                    styleStr = `width: ${progress}%; right: 0; position: absolute;`;
+                    barStyle = `width: ${progress}%; right: 0;`;
                 }
                 
                 return `
                     <div class="special-card ${g.color} rounded-xl p-2 flex flex-col justify-between relative shadow-lg h-full">
                         <div class="flex justify-between items-start">
                             <div class="flex flex-col">
-                                <span onclick="renameGroup('${g.id}', true)" class="text-[9px] font-black text-slate-500 border-b border-dotted cursor-pointer uppercase tracking-wider">${g.name}</span>
+                                <span onclick="renameGroup('${g.id}', true)" class="text-[9px] font-black text-slate-500 border-b border-dotted cursor-pointer uppercase">${g.name}</span>
                                 <div onclick="editGroupMembers('${g.id}')" class="mt-0.5 flex flex-wrap max-h-[25px] overflow-hidden cursor-pointer">
-                                    ${g.members.length > 0 ? g.members.map(m => `<span class="member-tag">${m}</span>`).join('') : '<span class="text-[8px] text-slate-400">點擊新增</span>'}
+                                    ${g.members.length > 0 ? g.members.map(m => `<span class="member-tag">${m}</span>`).join('') : '<span class="text-[8px] text-slate-400">成員</span>'}
                                 </div>
                             </div>
-                            <span class="text-xl">${isWinner ? '🏆' : g.icon}</span>
+                            <div class="flex flex-col items-end">
+                                <span class="text-xl">${isWinner ? '🏆' : g.icon}</span>
+                                ${isDuel ? '<span class="status-badge bg-rose-100 text-rose-600 mt-1">拉鋸中</span>' : ''}
+                            </div>
                         </div>
                         <div class="text-4xl font-black text-center my-0.5 tabular-nums ${isWinner ? 'text-emerald-500 scale-110' : 'text-slate-800'} transition-all">
                             ${g.score}
                         </div>
-                        <div class="flex gap-1 z-10">
-                            <button onclick="handleSpecialClick('${g.id}', 2)" class="flex-1 bg-amber-500 text-white font-bold py-1 rounded-lg text-[10px]">+2</button>
-                            <button onclick="handleSpecialClick('${g.id}', 1)" class="flex-1 bg-emerald-500 text-white font-bold py-1 rounded-lg text-[10px]">+1</button>
-                            <button onclick="handleSpecialClick('${g.id}', -1)" class="flex-1 bg-rose-500 text-white font-bold py-1 rounded-lg text-[10px]">-1</button>
+                        <div class="flex gap-1 z-20">
+                            <button onclick="handleSpecialScore('${g.id}', 1)" class="flex-1 bg-emerald-500 text-white font-bold py-1 rounded-lg text-[10px] shadow-sm">+1</button>
+                            <button onclick="handleSpecialScore('${g.id}', -1)" class="flex-1 bg-rose-500 text-white font-bold py-1 rounded-lg text-[10px] shadow-sm">-1</button>
                         </div>
-                        <div class="progress-container h-[8px]">
-                            <div class="progress-bar ${g.barColor}" style="${styleStr}">
-                                <span class="runner-icon ${g.id === 'A' ? 'icon-right' : 'icon-left'}">${isWinner ? '🏆' : g.icon}</span>
+                        <div class="progress-container">
+                            <div class="progress-relative-wrapper">
+                                <div class="progress-bar ${g.barColor}" style="${barStyle}">
+                                    <span class="runner-icon ${g.id === 'A' ? 'icon-right' : 'icon-left'}">${isWinner ? '🏆' : g.icon}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -220,20 +230,21 @@
                 const progress = Math.min(100, (g.score / scoreGoal) * 100);
                 const isWinner = g.score >= scoreGoal;
                 return `
-                    <div class="bg-white border-l-8 ${g.color} rounded-lg shadow-sm px-4 flex flex-col justify-center relative overflow-visible h-full">
+                    <div class="bg-white border-l-8 ${g.color} rounded-lg shadow-sm px-4 flex flex-col justify-center relative h-full">
                         <div class="absolute inset-0 track-bg opacity-10 pointer-events-none"></div>
                         <div class="flex items-center justify-between z-10">
                             <div onclick="renameGroup(${g.id}, false)" class="w-20 shrink-0 font-black text-slate-600 text-xs border-b border-dotted cursor-pointer">${g.name}</div>
                             <div class="text-5xl font-black text-slate-800 tabular-nums flex-1 text-center">${g.score}</div>
                             <div class="flex gap-1 shrink-0">
-                                <button onclick="changeRegularScore(${g.id}, 2)" class="btn-touch bg-amber-500 text-white w-10 h-10 rounded-xl font-black text-lg shadow-sm">+2</button>
                                 <button onclick="changeRegularScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-10 h-10 rounded-xl font-black text-lg shadow-sm">+1</button>
                                 <button onclick="changeRegularScore(${g.id}, -1)" class="btn-touch bg-slate-400 text-white w-10 h-10 rounded-xl font-black text-lg shadow-sm">-1</button>
                             </div>
                         </div>
                         <div class="progress-container overflow-visible">
-                            <div class="progress-bar ${g.barColor}" style="width: ${progress}%">
-                                <span class="runner-icon icon-right">${isWinner ? '🏆' : g.icon}</span>
+                             <div class="progress-relative-wrapper">
+                                <div class="progress-bar ${g.barColor}" style="width: ${progress}%">
+                                    <span class="runner-icon icon-right">${isWinner ? '🏆' : g.icon}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -241,38 +252,32 @@
             }).join('');
         }
 
-        // 核心邏輯：連動計分
-        function handleSpecialClick(groupId, delta) {
-            const groupA = specialGroups.find(g => g.id === 'A');
-            const groupB = specialGroups.find(g => g.id === 'B');
-            const oldA = groupA.score;
-            const oldB = groupB.score;
+        function handleSpecialScore(groupId, delta) {
+            const teamA = specialGroups[0];
+            const teamB = specialGroups[1];
+            const isDuel = teamA.score === teamB.score;
 
-            if (groupId === 'A') {
-                // 如果是學霸聯盟得分 (delta > 0 代表加分，但在 -50 體系中是向 0 靠攏)
-                // 這裡簡化邏輯：學霸 +N，壞蛋就 -N
-                groupA.score += delta;
-                groupB.score -= delta;
+            if (isDuel) {
+                if (groupId === 'A') {
+                    teamA.score += delta;
+                    teamB.score -= delta;
+                } else {
+                    teamB.score += delta;
+                    teamA.score -= delta;
+                }
             } else {
-                // 如果是壞蛋聯盟，他們的按鈕是 +2, +1, -1
-                // 邏輯要求：壞蛋減分(向0移動)，學霸就加分。
-                // 我們定義：按鈕上的 "+1" 對壞蛋來說是向0移動 (即真正的分數減1)
-                // 為了直覺，這裡設定：壞蛋點 +1 -> 分數減1；學霸分數加1
-                groupB.score -= delta;
-                groupA.score += delta;
+                const targetTeam = groupId === 'A' ? teamA : teamB;
+                targetTeam.score += delta;
             }
 
-            // 邊界檢查
-            if (groupA.score > 0) groupA.score = 0;
-            if (groupA.score < -50) groupA.score = -50;
-            if (groupB.score < 0) groupB.score = 0;
-            if (groupB.score > 50) groupB.score = 50;
+            specialGroups.forEach(g => {
+                if (g.score > 0) g.score = 0;
+                if (g.score < g.startScore) g.score = g.startScore;
+            });
 
             render();
             playSound(delta > 0);
-            
-            if (groupA.score === 0 && oldA !== 0) confetti({ particleCount: 100 });
-            if (groupB.score === 0 && oldB !== 0) confetti({ particleCount: 100 });
+            if (teamA.score === 0 || teamB.score === 0) confetti({ particleCount: 100 });
         }
 
         function changeRegularScore(id, delta) {
@@ -282,16 +287,19 @@
             if (g.score >= scoreGoal && delta > 0) confetti({ particleCount: 50 });
         }
 
+        function playSound(isPlus) {
+            const sound = document.getElementById(isPlus ? 'plusSound' : 'minusSound');
+            if(sound) { sound.volume = 0.3; sound.currentTime = 0; sound.play(); }
+        }
+
         function startPick(mode) {
             const modal = document.getElementById('mainModal');
             const res = document.getElementById('modalResult');
-            const title = document.getElementById('modalTitle');
-            const rePickBtn = document.getElementById('rePickBtn');
             const pool = mode === 'student' ? students : rewards;
             
-            title.innerText = mode === 'student' ? '抽籤中...' : '獎懲抽取中...';
+            document.getElementById('modalTitle').innerText = mode === 'student' ? '抽學生中...' : '獎勵抽取中...';
             modal.classList.remove('hidden');
-            rePickBtn.onclick = () => startPick(mode);
+            document.getElementById('rePickBtn').onclick = () => startPick(mode);
             
             let i = 0;
             const itv = setInterval(() => {
@@ -300,26 +308,22 @@
                     clearInterval(itv); 
                     const final = pool[Math.floor(Math.random()*pool.length)];
                     res.innerHTML = `<span>${final}</span>`;
-                    if(mode === 'student') document.getElementById('pickerDisplay').innerText = `已抽選：${final}`;
+                    if(mode === 'student') document.getElementById('pickerDisplay').innerText = `選中：${final}`;
                     confetti({ particleCount: 80 });
                 }
             }, 80);
         }
 
         function rollDiceDirect() {
-            const area = document.getElementById('diceResultArea');
             const iconsSpan = document.getElementById('diceIcons');
-            const pickerLabel = document.getElementById('pickerDisplay');
-            area.classList.remove('hidden');
-            pickerLabel.innerText = `正在擲骰子...`;
+            document.getElementById('diceResultArea').classList.remove('hidden');
+            document.getElementById('pickerDisplay').innerText = `擲骰子...`;
             let i = 0;
             const itv = setInterval(() => {
                 iconsSpan.innerHTML = `<span class="dice-number">${Math.floor(Math.random()*6)+1}</span>`;
-                if(i++ > 12) { 
+                if(i++ > 10) { 
                     clearInterval(itv); 
-                    const val = Math.floor(Math.random()*6)+1;
-                    iconsSpan.innerHTML = `<span class="dice-number">${val}</span>`;
-                    pickerLabel.innerText = "擲骰結果已顯示";
+                    iconsSpan.innerHTML = `<span class="dice-number">${Math.floor(Math.random()*6)+1}</span>`;
                 }
             }, 60);
         }
@@ -341,12 +345,8 @@
                 timerInterval = setInterval(() => {
                     if(timerSeconds > 0) { timerSeconds--; updateTimer(); }
                     else { 
-                        clearInterval(timerInterval); 
-                        timerInterval = null; 
-                        const endSound = document.getElementById('timerEndSound');
-                        endSound.currentTime = 0;
-                        endSound.play();
-                        setTimeout(() => { endSound.pause(); endSound.currentTime = 0; }, 2000);
+                        clearInterval(timerInterval); timerInterval = null; 
+                        document.getElementById('timerEndSound').play();
                         document.getElementById('timerToggle').innerText="開始"; 
                     }
                 }, 1000);
@@ -356,15 +356,15 @@
 
         function editStudents() {
             const list = prompt('名單：', students.join(', '));
-            if (list !== null) students = list.split(/[ ,，]+/).filter(n => n.trim());
+            if (list) students = list.split(/[ ,，]+/).filter(n => n.trim());
         }
         function editRewards() {
             const list = prompt('獎懲：', rewards.join(', '));
-            if (list !== null) rewards = list.split(/[ ,，]+/).filter(n => n.trim());
+            if (list) rewards = list.split(/[ ,，]+/).filter(n => n.trim());
         }
         function editGroupMembers(id) {
             const group = specialGroups.find(g => g.id === id);
-            const list = prompt(`${group.name} 隊員：`, group.members.join(', '));
+            const list = prompt(`${group.name} 成員：`, group.members.join(', '));
             if (list !== null) { group.members = list.split(/[ ,，]+/).filter(n => n.trim()); render(); }
         }
         function renameGroup(id, isSpecial) {
@@ -374,14 +374,10 @@
             if (newName) { group.name = newName; render(); }
         }
         function addOneToAllRegular() { regularGroups.forEach(g => g.score++); render(); playSound(true); }
-        function resetAll() { if(confirm('重置分數？')) { specialGroups[0].score = -50; specialGroups[1].score = 50; regularGroups.forEach(g => g.score = 0); render(); } }
+        function resetAll() { if(confirm('重置所有分數？')) { specialGroups.forEach(g => g.score = g.startScore); regularGroups.forEach(g => g.score = 0); render(); } }
         function setGoal() {
-            const newGoal = prompt('請輸入常規賽達標分數：', scoreGoal);
-            if (newGoal && !isNaN(newGoal)) {
-                scoreGoal = parseInt(newGoal);
-                document.getElementById('goalIndicator').innerText = `常規賽目標: ${scoreGoal}分`;
-                render();
-            }
+            const newGoal = prompt('目標分數：', scoreGoal);
+            if (newGoal && !isNaN(newGoal)) { scoreGoal = parseInt(newGoal); document.getElementById('goalIndicator').innerText = `常規賽目標: ${scoreGoal}分`; render(); }
         }
 
         window.onload = render;
