@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>課室計分榜 - 精準抽籤版</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入爆紙花庫 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; touch-action: manipulation; }
         
@@ -36,7 +38,7 @@
 
         /* --- 修正後的抽籤動畫 --- */
         .slot-container {
-            height: 60px; /* 固定視窗高度 */
+            height: 60px; 
             overflow: hidden;
             position: relative;
             background: #f8fafc;
@@ -56,10 +58,11 @@
             z-index: 10;
         }
         #slotMachine {
-            transition: transform 2.5s cubic-bezier(0.15, 0, 0.1, 1);
+            /* 加速轉動時間從 2.5s 改為 1.2s，並讓加速感更明顯 */
+            transition: transform 1.2s cubic-bezier(0.33, 1, 0.68, 1);
         }
         .slot-item {
-            height: 60px; /* 與容器高度一致，確保居中 */
+            height: 60px; 
             display: flex;
             align-items: center;
             justify-content: center;
@@ -173,21 +176,21 @@
             }
         }
 
-        // --- 抽籤邏輯 (精準對齊版) ---
+        // --- 抽籤邏輯 (加速 + 爆紙花版) ---
         function startPick() {
             if (students.length === 0) return alert("名單為空");
             const modal = document.getElementById('pickerModal');
             const slot = document.getElementById('slotMachine');
             modal.classList.remove('hidden');
             
-            const totalItems = 30; // 滾動次數
+            const totalItems = 40; // 增加滾動數量讓速度感更強
             let html = "";
             for(let i=0; i < totalItems; i++) {
                 const name = students[Math.floor(Math.random() * students.length)];
-                html += `<div class="slot-item text-slate-400">${name}</div>`;
+                html += `<div class="slot-item text-slate-400 opacity-60">${name}</div>`;
             }
             const winner = students[Math.floor(Math.random() * students.length)];
-            html += `<div class="slot-item text-blue-600 text-3xl">${winner}</div>`;
+            html += `<div class="slot-item text-blue-600 text-3xl font-black">${winner}</div>`;
             
             slot.innerHTML = html;
             slot.style.transition = "none";
@@ -196,14 +199,41 @@
             // 強制重繪
             void slot.offsetWidth;
             
-            // 計算滾動距離：每個項高度是 60px
+            // 執行滾動
             const distance = totalItems * 60;
-            slot.style.transition = "transform 2.5s cubic-bezier(0.15, 0, 0.1, 1)";
+            slot.style.transition = "transform 1.2s cubic-bezier(0.33, 1, 0.68, 1)";
             slot.style.transform = `translateY(-${distance}px)`;
             
+            // 動畫結束後的效果
             setTimeout(() => {
                 document.getElementById('pickerDisplay').innerText = `🎉 ${winner}`;
-            }, 2600);
+                
+                // 爆紙花特效
+                const duration = 2 * 1000;
+                const end = Date.now() + duration;
+
+                (function frame() {
+                    confetti({
+                        particleCount: 3,
+                        angle: 60,
+                        spread: 55,
+                        origin: { x: 0 },
+                        colors: ['#3b82f6', '#fbbf24', '#10b981']
+                    });
+                    confetti({
+                        particleCount: 3,
+                        angle: 120,
+                        spread: 55,
+                        origin: { x: 1 },
+                        colors: ['#3b82f6', '#fbbf24', '#10b981']
+                    });
+
+                    if (Date.now() < end) {
+                        requestAnimationFrame(frame);
+                    }
+                }());
+                
+            }, 1300); // 1.2s 動畫完結後延遲一點點觸發
         }
 
         function closePicker() { document.getElementById('pickerModal').classList.add('hidden'); }
