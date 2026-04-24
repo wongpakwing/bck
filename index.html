@@ -156,10 +156,10 @@
 
     <script>
         // 數據狀態
-        let isDuelModeActive = false; // 用於追蹤是否已經觸發過分數相等
+        let isDuelModeActive = false; 
         let specialGroups = [
-            { id: 'A', name: '學霸聯盟', score: -50, icon: '🦸', color: 'text-red-500', barColor: 'bg-red-500', members: '名單A' },
-            { id: 'B', name: '壞蛋聯盟', score: 50, icon: '😈', color: 'text-blue-500', barColor: 'bg-blue-500', members: '名單B' }
+            { id: 'A', name: '學霸聯盟', score: 5, icon: '🦸', color: 'text-red-500', barColor: 'bg-red-500', members: '名單A' },
+            { id: 'B', name: '壞蛋聯盟', score: 5, icon: '😈', color: 'text-blue-500', barColor: 'bg-blue-500', members: '名單B' }
         ];
 
         let regularGroups = [
@@ -178,7 +178,7 @@
             const teamA = specialGroups[0];
             const teamB = specialGroups[1];
             
-            // 檢查是否觸發拉鋸
+            // 只要兩者相等，就啟動拉鋸模式
             if (teamA.score === teamB.score) {
                 isDuelModeActive = true;
             }
@@ -186,11 +186,12 @@
             document.getElementById('modeText').innerText = isDuelModeActive ? "拉鋸模式啟動" : "勢力抗衡中";
             document.getElementById('modeText').className = isDuelModeActive ? "text-rose-500 font-bold animate-pulse text-[10px]" : "text-blue-600 text-[10px]";
 
-            // 1. 渲染頂部合倂區
             const specialContainer = document.getElementById('special-zone');
             
-            let leftProgress = Math.max(0, Math.min(100, (teamA.score + 100) / 2)); 
-            let rightProgress = Math.max(0, Math.min(100, (teamB.score + 100) / 2));
+            // 進度條邏輯：拉鋸時以 50/50 為中心
+            let total = teamA.score + teamB.score;
+            if (total === 0) total = 1; // 防止除以 0
+            let leftWidth = (teamA.score / total) * 100;
 
             specialContainer.className = `p-3 bg-slate-900 border-x border-slate-300 flex flex-col justify-center transition-colors duration-500 ${isDuelModeActive ? 'duel-pulse' : ''}`;
             specialContainer.innerHTML = `
@@ -217,8 +218,8 @@
                 </div>
 
                 <div class="duel-track mb-3">
-                    <div class="progress-left" style="width: ${leftProgress}%"></div>
-                    <div class="progress-right" style="width: ${100 - rightProgress}%"></div>
+                    <div class="progress-left" style="width: ${leftWidth}%"></div>
+                    <div class="progress-right" style="width: ${100 - leftWidth}%"></div>
                     <div class="vs-badge">VS</div>
                 </div>
 
@@ -236,7 +237,6 @@
                 </div>
             `;
 
-            // 2. 渲染下方五組
             const regularContainer = document.getElementById('regular-zone');
             regularContainer.innerHTML = regularGroups.map(g => {
                 const progress = Math.min(100, (g.score / scoreGoal) * 100);
@@ -251,11 +251,8 @@
                                 <button onclick="changeRegularScore(${g.id}, -1)" class="btn-touch bg-slate-300 text-slate-600 w-10 h-8 rounded-lg font-bold text-sm">-1</button>
                             </div>
                         </div>
-                        <!-- 進度條軌道 (增粗至 h-4) -->
                         <div class="progress-track mt-1 h-4 bg-slate-100 rounded-full relative overflow-visible z-10">
-                            <!-- 進度填充 -->
                             <div class="progress-fill ${g.barColor} h-full rounded-full transition-all duration-500 opacity-40 shadow-inner" style="width: ${progress}%"></div>
-                            <!-- Runner Emoji -->
                             <div class="runner-emoji absolute top-1/2 -translate-y-1/2" style="left: ${progress}%; margin-left: -10px;">
                                 <span style="font-size: 20px;">${g.score >= scoreGoal ? '🏆' : g.icon}</span>
                             </div>
@@ -270,7 +267,7 @@
             const teamB = specialGroups[1];
 
             if (isDuelModeActive) {
-                // 拉鋸模式已啟動：一人得一分，另一人退一分
+                // 拉鋸模式：一進一退
                 if (groupId === 'A') {
                     teamA.score += delta;
                     teamB.score -= delta;
@@ -278,12 +275,16 @@
                     teamB.score += delta;
                     teamA.score -= delta;
                 }
+                // 分數不應小於 0 (除非老師手動扣分)
+                if (teamA.score < 0) teamA.score = 0;
+                if (teamB.score < 0) teamB.score = 0;
             } else {
                 // 獨立得分
                 const group = specialGroups.find(g => g.id === groupId);
                 group.score += delta;
+                if (group.score < 0) group.score = 0;
                 
-                // 檢查本次加分後是否進入拉鋸模式
+                // 檢查是否相等啟動拉鋸
                 if (teamA.score === teamB.score) {
                     isDuelModeActive = true;
                 }
@@ -291,7 +292,7 @@
             
             render();
             playSound(delta > 0);
-            if (Math.abs(teamA.score) >= 200 || Math.abs(teamB.score) >= 200) {
+            if (teamA.score >= 50 || teamB.score >= 50) {
                 confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } });
             }
         }
@@ -301,7 +302,7 @@
             g.score = Math.max(0, g.score + delta);
             render(); playSound(delta > 0);
             if (g.score >= scoreGoal && delta > 0) {
-                confetti({ particleCount: 50, origin: { y: 0.7 } });
+                confetti({ particleCount: 80, origin: { y: 0.7 } });
             }
         }
 
@@ -329,14 +330,14 @@
             let i = 0;
             const itv = setInterval(() => {
                 result.innerText = list[Math.floor(Math.random() * list.length)];
-                if(i++ > 15) { 
+                if(i++ > 20) { 
                     clearInterval(itv); 
-                    // 結果揭曉時噴灑紙碎
+                    // 結果揭曉時噴灑彩色紙碎
                     confetti({ 
-                        particleCount: 80, 
+                        particleCount: 100, 
                         spread: 70, 
                         origin: { y: 0.6 },
-                        colors: ['#fbbf24', '#a855f7', '#ef4444', '#3b82f6', '#10b981']
+                        colors: ['#ef4444', '#3b82f6', '#fbbf24', '#a855f7', '#10b981']
                     }); 
                 }
             }, 80);
@@ -348,7 +349,7 @@
             const itv = setInterval(() => {
                 const val = Math.floor(Math.random() * 6) + 1;
                 display.innerText = `🎲 點數：${val}`;
-                if(i++ > 10) clearInterval(itv);
+                if(i++ > 12) clearInterval(itv);
             }, 60);
         }
 
@@ -391,9 +392,9 @@
 
         function resetAll() { 
             if(confirm('重置所有數據？')) { 
-                specialGroups[0].score = -50; 
-                specialGroups[1].score = 50; 
-                isDuelModeActive = false; // 重置拉鋸狀態
+                specialGroups[0].score = 5; 
+                specialGroups[1].score = 5; 
+                isDuelModeActive = false; 
                 regularGroups.forEach(g => g.score = 0); 
                 document.getElementById('diceDisplay').innerText = `🎲 等待擲骰...`;
                 render(); 
