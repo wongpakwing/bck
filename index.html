@@ -24,12 +24,24 @@
             animation: save-flash 1.5s ease-in-out forwards;
         }
 
+        /* 同步中旋轉動畫 */
         .sync-loading {
             animation: spin 1s linear infinite;
         }
         @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
+        }
+        
+        /* 待同步呼吸燈提醒 */
+        @keyframes pulse-sync {
+            0% { box-shadow: 0 0 0 0px rgba(59, 130, 246, 0.7); transform: scale(1); }
+            50% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); transform: scale(1.05); }
+            100% { box-shadow: 0 0 0 0px rgba(59, 130, 246, 0); transform: scale(1); }
+        }
+        .need-sync {
+            animation: pulse-sync 1.5s infinite;
+            background-color: #2563eb !important; /* 深藍色提醒 */
         }
         
         .editable-name:hover {
@@ -49,10 +61,10 @@
             <div id="saveStatus" class="text-[10px] text-blue-600 font-bold opacity-0">● 雲端已更新</div>
         </div>
         <div class="flex gap-2">
-            <!-- 手動同步按鈕 -->
+            <!-- 手動同步按鈕 (帶有動態提醒類名控制) -->
             <button id="syncBtn" onclick="manualSync()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-md">
                 <svg id="syncIcon" xmlns="http://www.w3.org/2003/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-                同步數據
+                <span id="syncText">同步數據</span>
             </button>
             <button onclick="addOneToAll()" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1 rounded-lg text-xs font-bold transition">全體 +1</button>
             <button onclick="resetScores()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1 rounded-lg text-xs font-medium transition">重置</button>
@@ -82,6 +94,13 @@
         let isSyncing = false;
         let localChanged = false; 
 
+        // 監聽視窗關閉，防止忘記同步
+        window.onbeforeunload = function() {
+            if (localChanged) {
+                return "您有未同步的分數，確定要離開嗎？";
+            }
+        };
+
         // 手動同步邏輯
         async function manualSync() {
             if (isSyncing) return;
@@ -93,11 +112,13 @@
                 if (!fetchRes.ok) throw new Error("Fetch Failed");
                 const cloudData = await fetchRes.json();
 
+                // 如果本地沒改動，同步雲端數據到本地
                 if (!localChanged && Array.isArray(cloudData) && cloudData.length === 7) {
                     groups = cloudData;
                     render();
                 }
 
+                // 上傳當前數據
                 const saveRes = await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -106,6 +127,7 @@
 
                 if (saveRes.ok) {
                     localChanged = false;
+                    toggleSyncAlert(false); // 關閉提醒
                     showSaveIndicator();
                     updateStatus("同步成功", "text-emerald-600");
                 } else {
@@ -113,7 +135,7 @@
                 }
             } catch (e) {
                 console.error(e);
-                updateStatus("同步延遲，請重試", "text-rose-500");
+                updateStatus("同步失敗，請重試", "text-rose-500");
             } finally {
                 setTimeout(() => setSyncingUI(false), 500);
             }
@@ -123,12 +145,28 @@
             isSyncing = syncing;
             const btn = document.getElementById('syncBtn');
             const icon = document.getElementById('syncIcon');
+            const text = document.getElementById('syncText');
             if (syncing) {
                 btn.classList.add('opacity-70');
                 icon.classList.add('sync-loading');
+                text.innerText = "同步中...";
             } else {
                 btn.classList.remove('opacity-70');
                 icon.classList.remove('sync-loading');
+                text.innerText = localChanged ? "立即上傳" : "同步數據";
+            }
+        }
+
+        // 切換同步提醒按鈕樣式
+        function toggleSyncAlert(needed) {
+            const btn = document.getElementById('syncBtn');
+            const text = document.getElementById('syncText');
+            if (needed) {
+                btn.classList.add('need-sync');
+                text.innerText = "立即上傳";
+            } else {
+                btn.classList.remove('need-sync');
+                text.innerText = "同步數據";
             }
         }
 
@@ -154,49 +192,48 @@
             }
         }
 
-        // 修改名稱功能
+        // 修改名稱
         window.editName = (id) => {
             const group = groups.find(g => g.id === id);
             if (group) {
                 const newName = prompt("請輸入新的小隊名稱：", group.name);
                 if (newName !== null && newName.trim() !== "") {
                     group.name = newName.trim();
-                    localChanged = true;
-                    render();
-                    updateStatus("名稱已修改，請按同步", "text-amber-500");
-                    localStorage.setItem('classroom_scores_final_v7', JSON.stringify(groups));
+                    triggerLocalChange("名稱已修改，請按同步");
                 }
             }
         };
 
+        // 分數變動
         window.changeScore = (id, delta) => {
             const group = groups.find(g => g.id === id);
             if (group) {
                 group.score += delta;
-                localChanged = true;
-                render();
+                triggerLocalChange("分數已更改，請按同步");
                 playSound(delta > 0);
-                updateStatus("分數已更改，請按同步", "text-amber-500");
-                localStorage.setItem('classroom_scores_final_v7', JSON.stringify(groups));
             }
         };
 
+        // 全體加分
         window.addOneToAll = () => {
             groups.forEach(g => g.score += 1);
-            localChanged = true;
-            render();
+            triggerLocalChange("全體加分，請按同步");
             playSound(true);
-            updateStatus("全體加分，請按同步", "text-amber-500");
-            localStorage.setItem('classroom_scores_final_v7', JSON.stringify(groups));
         };
+
+        // 觸發本地變動狀態
+        function triggerLocalChange(msg) {
+            localChanged = true;
+            toggleSyncAlert(true); // 開啟按鈕閃爍提醒
+            render();
+            updateStatus(msg, "text-amber-500");
+            localStorage.setItem('classroom_scores_final_v7', JSON.stringify(groups));
+        }
 
         window.resetScores = () => {
             if (confirm('確定要將本地分數與名稱重置嗎？(需點擊同步才會更新雲端)')) {
                 groups = JSON.parse(JSON.stringify(defaultGroups));
-                localChanged = true;
-                render();
-                updateStatus("本地已重置，請按同步", "text-amber-500");
-                localStorage.setItem('classroom_scores_final_v7', JSON.stringify(groups));
+                triggerLocalChange("本地已重置，請按同步");
             }
         };
 
