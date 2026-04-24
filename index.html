@@ -74,7 +74,12 @@
             border: 2px solid #1e293b;
         }
 
-        /* 修正 Emoji 顯示與層級 */
+        /* 確保彩色紙碎在最上層 */
+        canvas#confetti-canvas {
+            z-index: 999 !important;
+            position: fixed !important;
+        }
+
         .runner-emoji {
             z-index: 20;
             filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
@@ -88,7 +93,7 @@
     <!-- 頁首 -->
     <header class="bg-white/95 backdrop-blur rounded-t-xl px-4 py-2 flex justify-between items-center border-b border-slate-300 shadow-sm shrink-0">
         <div>
-            <h1 class="font-bold text-xs">課室計分榜 <span id="modeText" class="text-blue-600">(勢力對抗)</span></h1>
+            <h1 class="font-bold text-xs">課室計分榜 <span id="modeText" class="text-blue-600">(勢力對峙)</span></h1>
         </div>
         <div class="flex gap-2">
             <button onclick="addOneToAllRegular()" class="bg-emerald-500 text-white px-3 py-1 rounded-lg text-[10px] font-bold shadow-sm">常規全體 +1</button>
@@ -96,7 +101,7 @@
         </div>
     </header>
 
-    <!-- 特種競賽區 (合倂對抗區) -->
+    <!-- 特種競賽區 -->
     <div id="special-zone" class="p-3 bg-slate-900 border-x border-slate-300 flex flex-col justify-center">
         <!-- JS Render -->
     </div>
@@ -106,19 +111,10 @@
         <!-- JS Render -->
     </div>
 
-    <!-- 底部控制台 -->
-    <footer class="bg-slate-900 rounded-b-xl p-2 flex flex-col gap-2 shrink-0">
+    <!-- 底部控制台 (按鈕放至最底) -->
+    <footer class="bg-slate-900 rounded-b-xl p-2 flex flex-col gap-2 shrink-0 pb-3">
         <div class="flex gap-2">
-            <!-- 左側：抽籤區 -->
-            <div class="flex-1 bg-slate-800 rounded-lg p-2 border border-slate-700">
-                <div id="pickerDisplay" class="text-amber-400 font-bold text-[10px] mb-1 italic">等待抽籤...</div>
-                <div class="flex gap-1">
-                    <button onclick="startPick('student')" class="btn-touch flex-1 bg-amber-500 text-white py-1.5 rounded text-[11px] font-bold">抽學生</button>
-                    <button onclick="startPick('reward')" class="btn-touch flex-1 bg-purple-500 text-white py-1.5 rounded text-[11px] font-bold">抽獎懲</button>
-                </div>
-            </div>
-            
-            <!-- 右側：功能區 (擲骰與計時) -->
+            <!-- 左側：功能區 (擲骰與計時) -->
             <div class="flex-[1.5] bg-slate-800 rounded-lg p-2 border border-slate-700">
                 <div class="flex justify-between items-center mb-1">
                     <div class="flex flex-col">
@@ -137,17 +133,26 @@
                     <button onclick="resetTimer()" class="bg-slate-700 text-white px-2 py-1 rounded text-[10px]">重置</button>
                 </div>
             </div>
+
+            <!-- 右側：抽籤區 -->
+            <div class="flex-1 bg-slate-800 rounded-lg p-2 border border-slate-700 flex flex-col">
+                <div id="pickerDisplay" class="text-amber-400 font-bold text-[10px] mb-auto italic">等待抽取結果...</div>
+                <div class="flex gap-1 mt-2">
+                    <button onclick="startPick('student')" class="btn-touch flex-1 bg-amber-500 text-white py-2 rounded text-[11px] font-bold shadow-lg">抽學生</button>
+                    <button onclick="startPick('reward')" class="btn-touch flex-1 bg-purple-500 text-white py-2 rounded text-[11px] font-bold shadow-lg">抽獎懲</button>
+                </div>
+            </div>
         </div>
     </footer>
 
-    <!-- 抽籤 Modal -->
-    <div id="mainModal" class="hidden fixed inset-0 bg-black/90 z-[200] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl p-6 w-full max-w-xs text-center shadow-2xl">
+    <!-- 抽籤 Modal (提高 z-index 但 confetti 應在其上) -->
+    <div id="mainModal" class="hidden fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-xs text-center shadow-2xl relative">
             <h3 id="modalTitle" class="text-slate-400 text-[10px] font-bold mb-4 uppercase italic">正在抽取</h3>
             <div class="min-h-[80px] flex items-center justify-center bg-slate-50 rounded-xl border-2 border-slate-100">
                 <div id="modalResult" class="text-2xl font-black text-slate-800 px-2">...</div>
             </div>
-            <button onclick="closeModal()" class="w-full bg-slate-800 text-white py-3 rounded-lg font-bold mt-4 shadow-lg">確認</button>
+            <button onclick="closeModal()" class="w-full bg-slate-800 text-white py-3 rounded-lg font-bold mt-4 shadow-lg active:scale-95 transition-all">確認結果</button>
         </div>
     </div>
 
@@ -157,9 +162,11 @@
     <script>
         // 數據狀態
         let isDuelModeActive = false; 
+        const DUEL_THRESHOLD = 30; // 拉鋸觸發門檻
+        
         let specialGroups = [
-            { id: 'A', name: '學霸聯盟', score: 5, icon: '🦸', color: 'text-red-500', barColor: 'bg-red-500', members: '名單A' },
-            { id: 'B', name: '壞蛋聯盟', score: 5, icon: '😈', color: 'text-blue-500', barColor: 'bg-blue-500', members: '名單B' }
+            { id: 'A', name: '學霸聯盟', score: 0, icon: '🦸', color: 'text-red-500', barColor: 'bg-red-500', members: '名單A' },
+            { id: 'B', name: '壞蛋聯盟', score: 0, icon: '😈', color: 'text-blue-500', barColor: 'bg-blue-500', members: '名單B' }
         ];
 
         let regularGroups = [
@@ -178,20 +185,31 @@
             const teamA = specialGroups[0];
             const teamB = specialGroups[1];
             
-            // 只要兩者相等，就啟動拉鋸模式
-            if (teamA.score === teamB.score) {
+            // 只有在雙方都達到門檻且分數相等時觸發拉鋸
+            if (teamA.score >= DUEL_THRESHOLD && teamB.score >= DUEL_THRESHOLD && teamA.score === teamB.score) {
                 isDuelModeActive = true;
             }
             
-            document.getElementById('modeText').innerText = isDuelModeActive ? "拉鋸模式啟動" : "勢力抗衡中";
-            document.getElementById('modeText').className = isDuelModeActive ? "text-rose-500 font-bold animate-pulse text-[10px]" : "text-blue-600 text-[10px]";
+            const modeLabel = document.getElementById('modeText');
+            if (isDuelModeActive) {
+                modeLabel.innerText = "🚨 終極拉鋸戰";
+                modeLabel.className = "text-rose-500 font-bold animate-pulse text-[10px]";
+            } else {
+                modeLabel.innerText = `對抗進行中 (門檻: ${DUEL_THRESHOLD})`;
+                modeLabel.className = "text-blue-600 text-[10px]";
+            }
 
             const specialContainer = document.getElementById('special-zone');
             
-            // 進度條邏輯：拉鋸時以 50/50 為中心
-            let total = teamA.score + teamB.score;
-            if (total === 0) total = 1; // 防止除以 0
-            let leftWidth = (teamA.score / total) * 100;
+            // 進度條顯示
+            let leftWidth = 50;
+            if (!isDuelModeActive) {
+                let total = teamA.score + teamB.score;
+                if (total > 0) leftWidth = (teamA.score / total) * 100;
+            } else {
+                // 拉鋸模式下，總分始終平衡
+                leftWidth = 50;
+            }
 
             specialContainer.className = `p-3 bg-slate-900 border-x border-slate-300 flex flex-col justify-center transition-colors duration-500 ${isDuelModeActive ? 'duel-pulse' : ''}`;
             specialContainer.innerHTML = `
@@ -275,26 +293,30 @@
                     teamB.score += delta;
                     teamA.score -= delta;
                 }
-                // 分數不應小於 0 (除非老師手動扣分)
-                if (teamA.score < 0) teamA.score = 0;
-                if (teamB.score < 0) teamB.score = 0;
             } else {
-                // 獨立得分
+                // 正常累積
                 const group = specialGroups.find(g => g.id === groupId);
                 group.score += delta;
-                if (group.score < 0) group.score = 0;
                 
-                // 檢查是否相等啟動拉鋸
-                if (teamA.score === teamB.score) {
+                // 檢查是否達到拉鋸觸發條件
+                if (teamA.score >= DUEL_THRESHOLD && teamB.score >= DUEL_THRESHOLD && teamA.score === teamB.score) {
                     isDuelModeActive = true;
+                    // 觸發彩色紙碎
+                    confetti({ 
+                        particleCount: 150, 
+                        spread: 100, 
+                        origin: { y: 0.5 },
+                        colors: ['#ff0000', '#0000ff']
+                    });
                 }
             }
             
+            // 數值下限修正
+            teamA.score = Math.max(0, teamA.score);
+            teamB.score = Math.max(0, teamB.score);
+            
             render();
             playSound(delta > 0);
-            if (teamA.score >= 50 || teamB.score >= 50) {
-                confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } });
-            }
         }
 
         function changeRegularScore(id, delta) {
@@ -323,21 +345,24 @@
         function startPick(mode) {
             const modal = document.getElementById('mainModal');
             const result = document.getElementById('modalResult');
+            const pickerText = document.getElementById('pickerDisplay');
             modal.classList.remove('hidden');
             let list = mode === 'student' ? students : rewards;
-            document.getElementById('modalTitle').innerText = mode === 'student' ? "隨機學生" : "驚喜獎懲";
+            document.getElementById('modalTitle').innerText = mode === 'student' ? "隨機抽取學生" : "驚喜獎懲抽取";
             
             let i = 0;
             const itv = setInterval(() => {
-                result.innerText = list[Math.floor(Math.random() * list.length)];
-                if(i++ > 20) { 
+                const current = list[Math.floor(Math.random() * list.length)];
+                result.innerText = current;
+                if(i++ > 15) { 
                     clearInterval(itv); 
-                    // 結果揭曉時噴灑彩色紙碎
+                    pickerText.innerText = `最新結果：${current}`;
+                    // 結果揭曉時噴灑彩色紙碎，設置較高 z-index 確保在 modal 之上
                     confetti({ 
                         particleCount: 100, 
                         spread: 70, 
-                        origin: { y: 0.6 },
-                        colors: ['#ef4444', '#3b82f6', '#fbbf24', '#a855f7', '#10b981']
+                        origin: { y: 0.5 },
+                        zIndex: 1000 
                     }); 
                 }
             }, 80);
@@ -358,8 +383,10 @@
         function resetTimer() { 
             timerSeconds = 0; 
             updateTimer(); 
-            clearInterval(timerInterval); 
-            timerInterval = null; 
+            if(timerInterval) {
+                clearInterval(timerInterval); 
+                timerInterval = null; 
+            }
             document.getElementById('timerToggle').innerText = '開始'; 
         }
         function updateTimer() {
@@ -384,7 +411,7 @@
                         timerInterval = null;
                         document.getElementById('timerToggle').innerText = '開始';
                         playSound(false);
-                        confetti({ particleCount: 100, spread: 160 });
+                        confetti({ particleCount: 100, spread: 160, zIndex: 1000 });
                     }
                 }, 1000); 
             }
@@ -392,11 +419,12 @@
 
         function resetAll() { 
             if(confirm('重置所有數據？')) { 
-                specialGroups[0].score = 5; 
-                specialGroups[1].score = 5; 
+                specialGroups[0].score = 0; 
+                specialGroups[1].score = 0; 
                 isDuelModeActive = false; 
                 regularGroups.forEach(g => g.score = 0); 
                 document.getElementById('diceDisplay').innerText = `🎲 等待擲骰...`;
+                document.getElementById('pickerDisplay').innerText = `等待抽取結果...`;
                 render(); 
             } 
         }
