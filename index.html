@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課室計分榜 - 精準抽籤版</title>
+    <title>課室計分榜 - 打骰優化版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入爆紙花庫 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -19,23 +19,6 @@
 
         .btn-touch:active { transform: scale(0.92); }
         
-        @keyframes save-flash {
-            0% { opacity: 0; transform: translateY(5px); }
-            50% { opacity: 1; transform: translateY(0); }
-            100% { opacity: 0; transform: translateY(-5px); }
-        }
-        .save-indicator { animation: save-flash 1.5s ease-in-out forwards; }
-
-        .sync-loading { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        
-        @keyframes pulse-sync-red {
-            0% { box-shadow: 0 0 0 0px rgba(239, 68, 68, 0.7); }
-            50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
-            100% { box-shadow: 0 0 0 0px rgba(239, 68, 68, 0); }
-        }
-        .need-sync { animation: pulse-sync-red 1.5s infinite; background-color: #ef4444 !important; }
-
         /* --- 老虎機動畫 --- */
         .slot-container {
             height: 60px; 
@@ -94,6 +77,7 @@
             75% { transform: rotate(10deg) scale(1.1); }
             100% { transform: rotate(0deg) scale(1); }
         }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="bg-slate-200 overflow-hidden px-2 pt-2">
@@ -101,11 +85,9 @@
         <div class="flex items-center gap-2">
             <h1 class="font-bold text-slate-800 text-xs">課室計分榜</h1>
             <div id="syncStatus" class="text-[9px] text-slate-500">就緒</div>
-            <div id="saveStatus" class="text-[10px] text-blue-600 font-bold opacity-0">● 同步成功</div>
         </div>
         <div class="flex gap-2">
             <button id="syncBtn" onclick="manualSync()" class="bg-blue-600 text-white px-3 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-1 shadow-sm">
-                <svg id="syncIcon" xmlns="http://www.w3.org/2003/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
                 <span id="syncText">同步</span>
             </button>
             <button onclick="addOneToAll()" class="bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-bold">全體+1</button>
@@ -132,6 +114,7 @@
                 <div id="diceContainer" class="flex gap-2"></div>
                 <div class="flex gap-1 ml-auto">
                     <button onclick="addDice()" class="bg-indigo-500 text-white px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap">骰子 +1</button>
+                    <button onclick="rollAllDice()" class="bg-amber-600 text-white px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap">打骰</button>
                     <button onclick="clearDice()" class="bg-slate-500 text-slate-200 px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap">清空</button>
                 </div>
             </div>
@@ -164,9 +147,10 @@
         </div>
     </div>
 
+    <!-- 音效資源 -->
     <audio id="plusSound" src="https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"></audio>
     <audio id="minusSound" src="https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3"></audio>
-    <audio id="timerEndSound" src="https://assets.mixkit.co/active_storage/sfx/1035/1035-preview.mp3"></audio>
+    <audio id="timerEndSound" src="https://assets.mixkit.co/active_storage/sfx/1070/1070-preview.mp3"></audio> <!-- 更換為叮叮叮音效 -->
     <audio id="diceSound" src="https://assets.mixkit.co/active_storage/sfx/2034/2034-preview.mp3"></audio>
 
     <script>
@@ -176,11 +160,10 @@
         let isSyncing = false;
         let localChanged = false;
 
-        // 音效控制：將音量降低，避免過大聲
         function playEffectSound(id) {
             const sound = document.getElementById(id);
             if (sound) {
-                sound.volume = 0.3; // 設置為 30% 音量
+                sound.volume = 0.3; 
                 sound.currentTime = 0;
                 sound.play();
             }
@@ -189,7 +172,7 @@
         // --- 骰子邏輯 ---
         function addDice() {
             const container = document.getElementById('diceContainer');
-            if (container.children.length >= 5) return; // 最多5顆
+            if (container.children.length >= 6) return; 
             
             const dice = document.createElement('div');
             dice.className = 'dice';
@@ -197,6 +180,12 @@
             dice.onclick = () => rollDice(dice);
             container.appendChild(dice);
             rollDice(dice);
+        }
+
+        function rollAllDice() {
+            const dices = document.querySelectorAll('.dice');
+            if (dices.length === 0) return;
+            dices.forEach(dice => rollDice(dice));
         }
 
         function clearDice() {
@@ -261,7 +250,7 @@
             const slot = document.getElementById('slotMachine');
             modal.classList.remove('hidden');
             
-            const totalItems = 40;
+            const totalItems = 30;
             let html = "";
             for(let i=0; i < totalItems; i++) {
                 const name = students[Math.floor(Math.random() * students.length)];
@@ -282,16 +271,7 @@
             
             setTimeout(() => {
                 document.getElementById('pickerDisplay').innerText = `🎉 ${winner}`;
-                
-                // 爆紙花
-                const duration = 1.5 * 1000;
-                const end = Date.now() + duration;
-
-                (function frame() {
-                    confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#3b82f6', '#fbbf24', '#10b981'] });
-                    confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#3b82f6', '#fbbf24', '#10b981'] });
-                    if (Date.now() < end) requestAnimationFrame(frame);
-                }());
+                confetti({ particleCount: 50, spread: 60, origin: { y: 0.8 }, colors: ['#3b82f6', '#fbbf24', '#10b981'] });
             }, 1300);
         }
 
@@ -300,7 +280,6 @@
             const input = prompt("輸入名單(逗號分隔)：", students.join(', '));
             if (input) {
                 students = input.split(/[,，\s]+/).filter(n => n.trim() !== "");
-                localStorage.setItem('cls_stu', JSON.stringify(students));
             }
         }
 
@@ -321,10 +300,8 @@
             container.innerHTML = sorted.map(g => `
                 <div class="border-l-4 ${g.color} rounded shadow-sm px-4 flex items-center justify-between bg-white overflow-hidden">
                     <div class="w-28 shrink-0">
-                        <!-- 組名字體加大至 text-lg -->
                         <h2 onclick="editName(${g.id})" class="text-lg font-black text-slate-700 truncate cursor-pointer leading-tight">${g.name}</h2>
                     </div>
-                    <!-- 得分數字加大至 text-5xl -->
                     <div class="text-5xl font-black text-slate-800 tabular-nums flex-1 text-center">${g.score}</div>
                     <div class="flex gap-1 shrink-0">
                         <button onclick="changeScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-12 h-12 rounded font-bold text-xl">+1</button>
@@ -340,7 +317,6 @@
             if (group) {
                 group.score += delta;
                 localChanged = true;
-                toggleSyncAlert(true);
                 render();
                 playEffectSound(delta > 0 ? 'plusSound' : 'minusSound');
             }
@@ -357,7 +333,7 @@
             playEffectSound('plusSound');
         }
         function resetScores() {
-            if (confirm('確定重置？')) { groups.forEach(g => g.score = 0); localChanged = true; render(); }
+            if (confirm('確定重置所有分數？')) { groups.forEach(g => g.score = 0); localChanged = true; render(); }
         }
         async function manualSync() {
             if (isSyncing) return;
@@ -365,36 +341,16 @@
             const btn = document.getElementById('syncBtn');
             btn.classList.add('opacity-50');
             try {
-                if (!localChanged) {
-                    const fetchRes = await fetch(`${API_URL}?t=${Date.now()}`);
-                    const data = await fetchRes.json();
-                    if (data.groups) groups = data.groups;
-                }
-                const saveRes = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ groups, students })
-                });
-                if (saveRes.ok) {
-                    localChanged = false;
-                    toggleSyncAlert(false);
-                    render();
-                }
+                const fetchRes = await fetch(`${API_URL}?t=${Date.now()}`);
+                const data = await fetchRes.json();
+                if (data.groups) groups = data.groups;
+                render();
             } catch (e) { console.error(e); } 
             finally { isSyncing = false; btn.classList.remove('opacity-50'); }
         }
-        function toggleSyncAlert(needed) {
-            const btn = document.getElementById('syncBtn');
-            if (needed) btn.classList.add('need-sync');
-            else btn.classList.remove('need-sync');
-        }
 
         window.onload = () => {
-            const savedG = localStorage.getItem('cls_scores');
-            const savedS = localStorage.getItem('cls_stu');
-            if (savedG) groups = JSON.parse(savedG);
-            else groups = JSON.parse(JSON.stringify(defaultGroups));
-            if (savedS) students = JSON.parse(savedS);
+            groups = JSON.parse(JSON.stringify(defaultGroups));
             render();
             manualSync();
         };
