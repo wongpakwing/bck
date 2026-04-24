@@ -9,7 +9,7 @@
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; touch-action: manipulation; }
         
-        #special-zone { height: 180px; shrink: 0; }
+        #special-zone { height: 200px; shrink: 0; }
         #regular-zone { flex: 1; min-height: 0; }
 
         .btn-touch:active { transform: scale(0.92); }
@@ -139,8 +139,8 @@
     <script>
         // 數據狀態
         let specialGroups = [
-            { id: 'A', name: '學霸聯盟', score: -50, icon: '🦸', color: 'text-red-500', barColor: 'bg-red-500', members: '名單A' },
-            { id: 'B', name: '壞蛋聯盟', score: 50, icon: '😈', color: 'text-blue-500', barColor: 'bg-blue-500', members: '名單B' }
+            { id: 'A', name: '學霸聯盟', score: 0, icon: '🦸', color: 'text-red-500', barColor: 'bg-red-500', members: '名單A' },
+            { id: 'B', name: '壞蛋聯盟', score: 0, icon: '😈', color: 'text-blue-500', barColor: 'bg-blue-500', members: '名單B' }
         ];
 
         let regularGroups = [
@@ -166,10 +166,10 @@
             // 1. 渲染頂部合倂區
             const specialContainer = document.getElementById('special-zone');
             
-            // 進度計算：中心點為 0 分，範圍 -50 到 50。
-            // 學霸從左側計算 (score+50)/100, 壞蛋從右側計算 (50-score)/100
-            let leftProgress = ((teamA.score - (-50)) / 100) * 100;
-            let rightProgress = ((50 - teamB.score) / 100) * 100;
+            // 進度計算：中心點為 0 分，範圍 0 到 100 方便演示。
+            let total = Math.max(100, teamA.score + teamB.score);
+            let leftProgress = (teamA.score / 100) * 100;
+            let rightProgress = (teamB.score / 100) * 100;
 
             specialContainer.className = `p-3 bg-slate-900 border-x border-slate-300 flex flex-col justify-center transition-colors duration-500 ${isDuel ? 'duel-pulse' : ''}`;
             specialContainer.innerHTML = `
@@ -196,19 +196,21 @@
                 </div>
 
                 <div class="duel-track mb-3">
-                    <div class="progress-left" style="width: ${Math.max(0, leftProgress)}%"></div>
-                    <div class="progress-right" style="width: ${Math.max(0, rightProgress)}%"></div>
+                    <div class="progress-left" style="width: ${Math.min(100, leftProgress)}%"></div>
+                    <div class="progress-right" style="width: ${Math.min(100, rightProgress)}%"></div>
                     <div class="vs-badge">VS</div>
                 </div>
 
-                <div class="flex gap-2">
+                <div class="flex gap-4">
                     <div class="flex flex-1 gap-1">
-                        <button onclick="handleSpecialScore('A', 1)" class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-1.5 rounded text-xs shadow-lg active:scale-95 transition-all">學霸 +1</button>
-                        <button onclick="handleSpecialScore('A', -1)" class="px-3 bg-slate-700 text-white font-bold py-1.5 rounded text-xs shadow-lg active:scale-95 transition-all">-</button>
+                        <button onclick="handleSpecialScore('A', 2)" class="flex-1 bg-red-600 text-white font-bold py-1 rounded text-xs shadow-lg active:scale-95 transition-all">+2</button>
+                        <button onclick="handleSpecialScore('A', 1)" class="flex-1 bg-red-500 text-white font-bold py-1 rounded text-xs shadow-lg active:scale-95 transition-all">+1</button>
+                        <button onclick="handleSpecialScore('A', -1)" class="px-2 bg-slate-700 text-white font-bold py-1 rounded text-xs shadow-lg active:scale-95 transition-all">-1</button>
                     </div>
                     <div class="flex flex-1 gap-1">
-                        <button onclick="handleSpecialScore('B', -1)" class="px-3 bg-slate-700 text-white font-bold py-1.5 rounded text-xs shadow-lg active:scale-95 transition-all">-</button>
-                        <button onclick="handleSpecialScore('B', 1)" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 rounded text-xs shadow-lg active:scale-95 transition-all">壞蛋 +1</button>
+                        <button onclick="handleSpecialScore('B', -1)" class="px-2 bg-slate-700 text-white font-bold py-1 rounded text-xs shadow-lg active:scale-95 transition-all">-1</button>
+                        <button onclick="handleSpecialScore('B', 1)" class="flex-1 bg-blue-500 text-white font-bold py-1 rounded text-xs shadow-lg active:scale-95 transition-all">+1</button>
+                        <button onclick="handleSpecialScore('B', 2)" class="flex-1 bg-blue-600 text-white font-bold py-1 rounded text-xs shadow-lg active:scale-95 transition-all">+2</button>
                     </div>
                 </div>
             `;
@@ -218,18 +220,19 @@
             regularContainer.innerHTML = regularGroups.map(g => {
                 const progress = Math.min(100, (g.score / scoreGoal) * 100);
                 return `
-                    <div class="bg-white border-l-4 ${g.barColor.replace('bg-','border-')} rounded-lg shadow-sm px-4 flex flex-col justify-center flex-1 relative min-h-[40px]">
-                        <div class="flex items-center justify-between z-10">
-                            <div class="w-12 font-bold text-slate-500 text-[10px] leading-tight">${g.name}</div>
+                    <div class="bg-white border-l-4 ${g.barColor.replace('bg-','border-')} rounded-lg shadow-sm px-4 py-2 flex flex-col justify-center flex-1 relative min-h-[50px]">
+                        <div class="flex items-center justify-between z-10 gap-2">
+                            <div class="w-12 font-bold text-slate-500 text-[10px] leading-tight shrink-0">${g.name}</div>
                             <div class="text-3xl font-black text-slate-800 tabular-nums flex-1 text-center">${g.score}</div>
                             <div class="flex gap-1">
-                                <button onclick="changeRegularScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-8 h-8 rounded-lg font-black text-lg">+</button>
-                                <button onclick="changeRegularScore(${g.id}, -1)" class="btn-touch bg-slate-200 text-slate-500 w-8 h-8 rounded-lg font-black text-lg">-</button>
+                                <button onclick="changeRegularScore(${g.id}, 2)" class="btn-touch bg-amber-500 text-white w-10 h-8 rounded-lg font-bold text-sm">+2</button>
+                                <button onclick="changeRegularScore(${g.id}, 1)" class="btn-touch bg-emerald-500 text-white w-10 h-8 rounded-lg font-bold text-sm">+1</button>
+                                <button onclick="changeRegularScore(${g.id}, -1)" class="btn-touch bg-slate-300 text-slate-600 w-10 h-8 rounded-lg font-bold text-sm">-1</button>
                             </div>
                         </div>
                         <div class="progress-track mt-1 h-1.5 relative overflow-visible">
-                            <div class="progress-fill ${g.barColor} opacity-40" style="width: ${progress}%"></div>
-                            <div class="runner-emoji" style="left: ${progress}%; font-size: 18px;">
+                            <div class="progress-fill ${g.barColor} opacity-30" style="width: ${progress}%"></div>
+                            <div class="runner-emoji" style="position: absolute; left: ${progress}%; font-size: 16px; transform: translateX(-50%)">
                                 ${g.score >= scoreGoal ? '🏆' : g.icon}
                             </div>
                         </div>
@@ -241,26 +244,26 @@
         function handleSpecialScore(groupId, delta) {
             const teamA = specialGroups[0];
             const teamB = specialGroups[1];
-            const isDuel = teamA.score === teamB.score;
+            const isDuel = (teamA.score === teamB.score) && teamA.score !== 0;
 
             if (isDuel) {
-                // 拉鋸模式：連動變更
+                // 拉鋸模式
                 if (groupId === 'A') {
                     teamA.score += delta;
-                    teamB.score -= delta; // 學霸增，壞蛋必減
+                    teamB.score -= delta;
                 } else {
                     teamB.score += delta;
-                    teamA.score -= delta; // 壞蛋增，學霸必減
+                    teamA.score -= delta;
                 }
             } else {
-                // 獨立得分模式
+                // 獨立得分
                 const group = specialGroups.find(g => g.id === groupId);
                 group.score += delta;
             }
             
             render();
             playSound(delta > 0);
-            if (teamA.score >= 50 || teamB.score >= 50) confetti({ particleCount: 150, spread: 100 });
+            if (teamA.score >= 100 || teamB.score >= 100) confetti({ particleCount: 150, spread: 100 });
         }
 
         function changeRegularScore(id, delta) {
@@ -272,7 +275,7 @@
 
         function playSound(isPlus) {
             const s = document.getElementById(isPlus ? 'plusSound' : 'minusSound');
-            s.currentTime = 0; s.play().catch(() => {});
+            if(s) { s.currentTime = 0; s.play().catch(() => {}); }
         }
 
         function editMembers(id) {
@@ -319,7 +322,7 @@
             else { timerInterval = setInterval(() => { if(timerSeconds > 0) { timerSeconds--; updateTimer(); } }, 1000); }
         }
 
-        function resetAll() { if(confirm('重置所有數據？')) location.reload(); }
+        function resetAll() { if(confirm('重置所有數據？')) { specialGroups.forEach(g => g.score = 0); regularGroups.forEach(g => g.score = 0); render(); } }
         function addOneToAllRegular() { regularGroups.forEach(g => g.score++); render(); playSound(true); }
         function closeModal() { document.getElementById('mainModal').classList.add('hidden'); }
 
