@@ -191,7 +191,7 @@
                 if (!isNaN(val)) total += val;
                 else if (d.innerText === '?') stillRolling = true;
             });
-            display.innerText = stillRolling ? "" : `合計: ${total}`; // 移除 ROLL... 字眼
+            display.innerText = stillRolling ? "" : `合計: ${total}`; 
         }
 
         function addDice() {
@@ -266,13 +266,13 @@
         // --- 抽籤與獎勵邏輯 ---
         function startPick() { 
             runModalAnimation("隨機抽學生", students, (final) => {
-                document.getElementById('pickerDisplay').innerText = `學生: ${final}`;
+                document.getElementById('pickerDisplay').innerText = `${final}`;
             }); 
         }
         
         function pickReward() { 
             runModalAnimation("隨機獎懲抽獎", rewards, (final) => {
-                document.getElementById('rewardDisplay').innerText = `獎勵: ${final}`;
+                document.getElementById('rewardDisplay').innerText = `${final}`;
             }); 
         }
 
