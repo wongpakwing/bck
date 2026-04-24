@@ -76,6 +76,19 @@
             border: 1.5px solid #1e293b;
         }
 
+        /* 骰子動畫 */
+        .dice-rolling {
+            animation: dice-shake 0.15s infinite;
+        }
+        @keyframes dice-shake {
+            0% { transform: translate(2px, 1px) rotate(0deg); }
+            20% { transform: translate(-1px, -2px) rotate(-5deg); }
+            40% { transform: translate(-3px, 0px) rotate(5deg); }
+            60% { transform: translate(3px, 2px) rotate(0deg); }
+            80% { transform: translate(1px, -1px) rotate(5deg); }
+            100% { transform: translate(-1px, 2px) rotate(-5deg); }
+        }
+
         /* 確保彩色紙碎在最上層 */
         canvas#confetti-canvas {
             z-index: 999 !important;
@@ -130,35 +143,40 @@
                 </div>
             </div>
 
-            <!-- 右側：抽籤區 (50%) -->
+            <!-- 右側：抽籤及擲骰區 (50%) -->
             <div class="flex-1 bg-slate-800 rounded-lg p-2 border border-slate-700 flex flex-col">
                 <div id="pickerDisplay" class="text-amber-400 font-bold text-[10px] mb-auto italic h-4 overflow-hidden">等待結果...</div>
                 <div class="flex gap-1 mt-2">
                     <button onclick="startPick('student')" class="btn-touch flex-1 bg-amber-500 text-white py-2 rounded text-[11px] font-bold shadow-lg">抽學生</button>
                     <button onclick="startPick('reward')" class="btn-touch flex-1 bg-purple-500 text-white py-2 rounded text-[11px] font-bold shadow-lg">抽獎懲</button>
+                    <button onclick="rollDice()" class="btn-touch flex-1 bg-rose-500 text-white py-2 rounded text-[11px] font-bold shadow-lg flex items-center justify-center gap-1">
+                        <span>🎲</span>擲骰
+                    </button>
                 </div>
             </div>
         </div>
     </footer>
 
-    <!-- 抽籤 Modal -->
+    <!-- 通用彈窗 Modal (抽籤/擲骰) -->
     <div id="mainModal" class="hidden fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl p-6 w-full max-w-xs text-center shadow-2xl relative">
-            <h3 id="modalTitle" class="text-slate-400 text-[10px] font-bold mb-4 uppercase italic">正在抽取</h3>
-            <div class="min-h-[80px] flex items-center justify-center bg-slate-50 rounded-xl border-2 border-slate-100">
-                <div id="modalResult" class="text-2xl font-black text-slate-800 px-2">...</div>
+            <h3 id="modalTitle" class="text-slate-400 text-[10px] font-bold mb-4 uppercase italic">正在進行</h3>
+            <div class="min-h-[100px] flex items-center justify-center bg-slate-50 rounded-xl border-2 border-slate-100 relative overflow-hidden">
+                <div id="modalResult" class="text-4xl font-black text-slate-800 px-2 transition-all duration-200">...</div>
             </div>
-            <button onclick="closeModal()" class="w-full bg-slate-800 text-white py-3 rounded-lg font-bold mt-4 shadow-lg active:scale-95 transition-all">確認結果</button>
+            <button id="modalConfirmBtn" onclick="closeModal()" class="w-full bg-slate-800 text-white py-3 rounded-lg font-bold mt-4 shadow-lg active:scale-95 transition-all">確認結果</button>
         </div>
     </div>
 
     <audio id="plusSound" src="https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"></audio>
     <audio id="minusSound" src="https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3"></audio>
+    <audio id="diceSound" src="https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3"></audio>
 
     <script>
         // 數據狀態
         let isDuelModeActive = false; 
         const DUEL_THRESHOLD = 30; // 拉鋸觸發門檻
+        const DUEL_RANGE = 20;     // 拉鋸戰中左右各偏移的最大分差範圍
         
         let specialGroups = [
             { id: 'A', name: '學霸聯盟', score: 0, icon: '🦸', color: 'text-red-500', barColor: 'bg-red-500', members: '名單A' },
@@ -175,6 +193,7 @@
 
         let students = ["學生A", "學生B", "學生C", "學生D", "學生E", "學生F"];
         let rewards = ["加 1 分", "扣 1 分", "表演節目", "免死金牌", "小禮物", "再抽一次"];
+        let diceFaces = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
         let scoreGoal = 20;
 
         function render() {
@@ -196,11 +215,15 @@
 
             const specialContainer = document.getElementById('special-zone');
             let leftWidth = 50;
-            if (!isDuelModeActive) {
+
+            if (isDuelModeActive) {
+                const diff = teamA.score - teamB.score;
+                leftWidth = 50 + (diff / DUEL_RANGE) * 50;
+                leftWidth = Math.max(2, Math.min(98, leftWidth));
+            } else {
                 let total = teamA.score + teamB.score;
                 if (total > 0) leftWidth = (teamA.score / total) * 100;
-            } else {
-                leftWidth = 50;
+                else leftWidth = 50;
             }
 
             specialContainer.className = `p-3 bg-slate-900 border-x border-slate-300 flex flex-col justify-center transition-colors duration-500 ${isDuelModeActive ? 'duel-pulse' : ''}`;
@@ -308,11 +331,14 @@
             if (val !== null) { group.members = val.trim() || '未設定'; render(); }
         }
 
+        // --- 抽籤與擲骰彈窗邏輯 ---
         function startPick(mode) {
             const modal = document.getElementById('mainModal');
             const result = document.getElementById('modalResult');
             const pickerText = document.getElementById('pickerDisplay');
+            result.className = "text-4xl font-black text-slate-800 px-2"; // 重置樣式
             modal.classList.remove('hidden');
+            
             let list = mode === 'student' ? students : rewards;
             document.getElementById('modalTitle').innerText = mode === 'student' ? "隨機抽取學生" : "驚喜獎懲抽取";
             
@@ -323,11 +349,43 @@
                 if(i++ > 15) { 
                     clearInterval(itv); 
                     pickerText.innerText = `${current}`;
-                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.5 }, zIndex: 1000 }); 
+                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.5 } }); 
                 }
             }, 80);
         }
 
+        function rollDice() {
+            const modal = document.getElementById('mainModal');
+            const result = document.getElementById('modalResult');
+            const pickerText = document.getElementById('pickerDisplay');
+            const diceSound = document.getElementById('diceSound');
+            
+            document.getElementById('modalTitle').innerText = "命運骰子";
+            modal.classList.remove('hidden');
+            result.className = "text-8xl dice-rolling text-rose-500"; // 套用骰子樣式
+            
+            if(diceSound) { diceSound.currentTime = 0; diceSound.play().catch(()=>{}); }
+
+            let i = 0;
+            const itv = setInterval(() => {
+                const face = diceFaces[Math.floor(Math.random() * diceFaces.length)];
+                result.innerText = face;
+                if(i++ > 20) { 
+                    clearInterval(itv); 
+                    result.className = "text-9xl font-black text-slate-800 scale-125 transition-transform duration-300";
+                    pickerText.innerText = `骰子結果：${result.innerText}`;
+                    // 擲骰完成，發射大量彩色紙碎
+                    confetti({ 
+                        particleCount: 200, 
+                        spread: 120, 
+                        origin: { y: 0.6 },
+                        colors: ['#f43f5e', '#fbbf24', '#3b82f6', '#10b981', '#a855f7']
+                    }); 
+                }
+            }, 60);
+        }
+
+        // --- 計時器邏輯 ---
         let timerSeconds = 0, timerInterval = null;
         function addTimer(s) { timerSeconds += s; updateTimer(); }
         function resetTimer() { 
@@ -350,7 +408,7 @@
                         clearInterval(timerInterval); timerInterval = null;
                         document.getElementById('timerToggle').innerText = '開始';
                         playSound(false);
-                        confetti({ particleCount: 100, spread: 160, zIndex: 1000 });
+                        confetti({ particleCount: 150, spread: 160, origin: {y: 0.5} });
                     }
                 }, 1000); 
             }
