@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課室計分榜 - 雲端同步版</title>
+    <title>課室計分榜 - 音量優化版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
@@ -20,7 +20,6 @@
         .timer-mini { font-size: 1.8rem; line-height: 1; font-weight: 900; letter-spacing: -1px; }
         .btn-touch:active { transform: scale(0.95); }
         
-        /* 拉鋸戰視覺效果 */
         .duel-track {
             position: relative; height: 12px; background: #0f172a;
             border-radius: 6px; overflow: hidden; border: 1px solid #334155;
@@ -35,11 +34,9 @@
             transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        /* 小組進度條 */
         .group-progress-bar { height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; margin-top: 4px; }
         .group-progress-fill { height: 100%; transition: width 0.5s ease-out; }
         
-        /* 同步提示 */
         #sync-indicator {
             position: fixed; top: 12px; right: 12px; font-size: 10px;
             padding: 4px 8px; border-radius: 20px; z-index: 100;
@@ -51,7 +48,6 @@
 
     <div id="sync-indicator" class="bg-slate-800 text-white font-bold">同步中...</div>
 
-    <!-- 頂部管理工具 -->
     <header class="bg-white rounded-xl p-2 shadow-sm flex justify-between items-center shrink-0 border border-slate-100">
         <div class="flex gap-2">
             <button onclick="openSettings('students')" class="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-[10px] font-bold border border-slate-200">👤 名單</button>
@@ -63,19 +59,11 @@
         </div>
     </header>
 
-    <!-- 聯盟拉鋸戰區 -->
-    <div id="special-zone" class="bg-slate-900 rounded-xl p-3 shrink-0 shadow-lg">
-        <!-- JS 動態渲染 -->
-    </div>
+    <div id="special-zone" class="bg-slate-900 rounded-xl p-3 shrink-0 shadow-lg"></div>
 
-    <!-- 常規五組區 (分數置中，按鈕靠右) -->
-    <div id="regular-zone" class="flex flex-col gap-1.5 flex-grow overflow-hidden">
-        <!-- JS 動態渲染 -->
-    </div>
+    <div id="regular-zone" class="flex flex-col gap-1.5 flex-grow overflow-hidden"></div>
 
-    <!-- 底部功能區 -->
     <footer class="flex gap-2 h-24 shrink-0">
-        <!-- 倒計時 -->
         <div class="bg-white rounded-xl p-2 shadow-md flex flex-col items-center justify-center w-40 border border-slate-100">
             <div id="timerDisplay" class="timer-mini font-mono text-slate-900 mb-1">00:00</div>
             <div class="grid grid-cols-2 gap-1 w-full">
@@ -86,7 +74,6 @@
             </div>
         </div>
 
-        <!-- 隨機抽籤與骰子 -->
         <div class="grid grid-cols-3 gap-2 flex-grow">
             <button onclick="startPick('student')" class="bg-amber-500 text-white rounded-xl font-bold shadow-md flex flex-col items-center justify-center btn-touch">
                 <span class="text-xl">👤</span>
@@ -103,21 +90,19 @@
         </div>
     </footer>
 
-    <!-- 骰子彈窗 -->
     <div id="diceModal" class="hidden fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl p-6 w-full max-w-xs text-center">
             <div id="diceList" class="flex flex-wrap justify-center gap-2 mb-4"></div>
             <div id="totalDiceScore" class="text-6xl font-black text-rose-500 mb-4">0</div>
             <div class="grid grid-cols-2 gap-2 mb-4">
-                <button onclick="changeDiceCount(1)" class="bg-slate-100 py-2 rounded-lg font-bold text-xs">+ 🎲 (增加)</button>
-                <button onclick="changeDiceCount(-1)" class="bg-slate-100 py-2 rounded-lg font-bold text-xs">- 🎲 (減少)</button>
+                <button onclick="changeDiceCount(1)" class="bg-slate-100 py-2 rounded-lg font-bold text-xs">+ 🎲</button>
+                <button onclick="changeDiceCount(-1)" class="bg-slate-100 py-2 rounded-lg font-bold text-xs">- 🎲</button>
             </div>
             <button onclick="reRollAll()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold mb-2">重新投擲</button>
             <button onclick="closeDiceModal()" class="w-full bg-slate-200 text-slate-600 py-3 rounded-xl font-bold">返回</button>
         </div>
     </div>
 
-    <!-- 設定彈窗 -->
     <div id="settingsModal" class="hidden fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl p-5 w-full max-w-sm">
             <h3 id="settingsTitle" class="text-lg font-black mb-2">設定</h3>
@@ -129,7 +114,6 @@
         </div>
     </div>
 
-    <!-- 隨機結果 -->
     <div id="pickModal" class="hidden fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl p-8 w-full max-w-xs text-center border-4 border-amber-400 shadow-2xl">
             <div id="pickResult" class="text-2xl font-black text-slate-800 min-h-[60px] flex items-center justify-center">...</div>
@@ -137,7 +121,7 @@
         </div>
     </div>
 
-    <!-- 隱藏的音效資源 -->
+    <!-- 音效資源 -->
     <audio id="sound-plus" src="https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3" preload="auto"></audio>
     <audio id="sound-minus" src="https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3" preload="auto"></audio>
     <audio id="sound-confetti" src="https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3" preload="auto"></audio>
@@ -162,26 +146,29 @@
             events: ["🎁 小組 +2", "🎁 個人 +1", "💀 全體 -1", "🎁 全組 +3"]
         };
 
-        // 音效控制
+        // 修改後的音效控制：加入音量縮減
         function playEffect(type) {
             const sound = document.getElementById(`sound-${type}`);
             if (sound) {
+                // 設定不同類型的音量
+                if (type === 'plus') {
+                    sound.volume = 0.3; // 加分調小聲至 30%
+                } else if (type === 'minus' || type === 'confetti') {
+                    sound.volume = 0.5; // 其他設為 50%
+                }
+                
                 sound.currentTime = 0;
-                sound.play().catch(e => console.log("等待用戶交互以啟動音效"));
+                sound.play().catch(e => console.log("音效播放被阻止，請先點擊頁面"));
             }
         }
 
-        // 資料同步功能
         async function fetchState() {
             showIndicator(true);
             try {
                 const res = await fetch(API_URL);
                 if (res.ok) {
                     const data = await res.json();
-                    if (data && data.specialGroups) {
-                        state = data;
-                        render();
-                    }
+                    if (data && data.specialGroups) { state = data; render(); }
                 }
             } catch (err) { console.error("Fetch Error:", err); }
             showIndicator(false);
@@ -203,15 +190,10 @@
             document.getElementById('sync-indicator').style.display = show ? 'block' : 'none';
         }
 
-        // 修改組名方法
         function editGroupName(type, id) {
-            let currentName = "";
-            let group;
-            if (type === 'special') {
-                group = state.specialGroups.find(g => g.id === id);
-            } else {
-                group = state.regularGroups.find(g => g.id === id);
-            }
+            let group = type === 'special' 
+                ? state.specialGroups.find(g => g.id === id)
+                : state.regularGroups.find(g => g.id === id);
             
             const newName = prompt("請輸入新的組名：", group.name);
             if (newName && newName.trim() !== "") {
@@ -222,7 +204,6 @@
         }
 
         function render() {
-            // 渲染頂部聯盟
             const tA = state.specialGroups[0], tB = state.specialGroups[1];
             const isDuel = tA.score >= 30 && tB.score >= 30;
             const total = tA.score + tB.score;
@@ -231,11 +212,9 @@
             document.getElementById('special-zone').innerHTML = `
                 <div class="flex justify-between items-center mb-2">
                     <div class="flex items-center gap-2">
-                        <div class="flex flex-col">
-                            <span class="text-lg font-black text-white leading-tight cursor-pointer" onclick="editGroupName('special','A')">
-                                ${tA.name} <span class="text-[10px] text-white/30 font-normal">✎</span>
-                            </span>
-                        </div>
+                        <span class="text-lg font-black text-white leading-tight cursor-pointer" onclick="editGroupName('special','A')">
+                            ${tA.name} <span class="text-[10px] text-white/30 font-normal">✎</span>
+                        </span>
                         <div class="flex gap-1">
                             <button onclick="scoreSpec('A',2)" class="bg-red-600 text-white w-7 h-7 rounded font-bold text-[10px]">+2</button>
                             <button onclick="scoreSpec('A',1)" class="bg-red-500 text-white w-7 h-7 rounded font-bold text-[10px]">+1</button>
@@ -262,38 +241,31 @@
                     ${isDuel ? `
                         <div class="progress-left" style="width: ${leftW}%"></div>
                         <div class="progress-right" style="width: ${100-leftW}%"></div>
-                    ` : `
-                        <span class="text-[9px] font-bold text-white/30 uppercase tracking-widest relative z-10">雙方滿 30 分解鎖拉鋸戰</span>
-                    `}
+                    ` : `<span class="text-[9px] font-bold text-white/30 uppercase tracking-widest relative z-10">滿 30 分解鎖拉鋸戰</span>`}
                 </div>
             `;
 
-            // 渲染五組 (分數置中，按鈕靠右)
             const maxVal = Math.max(...state.regularGroups.map(g => g.score), 50);
             document.getElementById('regular-zone').innerHTML = state.regularGroups.map(g => `
                 <div class="bg-white rounded-xl px-4 py-2 flex items-center justify-between flex-grow shadow-sm border-l-4 ${g.border}">
-                    <div class="flex flex-col flex-grow items-center relative">
-                        <div class="flex flex-col items-center">
-                            <span class="text-xs font-bold text-slate-400 cursor-pointer hover:text-blue-500" onclick="editGroupName('regular', ${g.id})">
-                                ${g.name} ✎
-                            </span>
-                            <span class="text-4xl font-black text-slate-900 tabular-nums leading-none">${g.score}</span>
-                        </div>
+                    <div class="flex flex-col flex-grow items-center">
+                        <span class="text-xs font-bold text-slate-400 cursor-pointer hover:text-blue-500" onclick="editGroupName('regular', ${g.id})">
+                            ${g.name} ✎
+                        </span>
+                        <span class="text-4xl font-black text-slate-900 tabular-nums leading-none">${g.score}</span>
                         <div class="group-progress-bar w-32">
                             <div class="group-progress-fill ${g.color}" style="width: ${Math.min((g.score/maxVal)*100, 100)}%"></div>
                         </div>
                     </div>
-                    <!-- 按鈕組置於最右方 -->
                     <div class="flex items-center gap-1 shrink-0">
                         <button onclick="scoreReg(${g.id},-1)" class="bg-slate-100 text-slate-400 w-10 h-10 rounded-xl font-black text-xs border border-slate-200">-1</button>
-                        <button onclick="scoreReg(${g.id},1)" class="bg-emerald-500 text-white w-12 h-12 rounded-xl font-black text-base shadow-sm">+1</button>
-                        <button onclick="scoreReg(${g.id},2)" class="bg-amber-400 text-white w-12 h-12 rounded-xl font-black text-base shadow-sm">+2</button>
+                        <button onclick="scoreReg(${g.id},1)" class="bg-emerald-500 text-white w-12 h-12 rounded-xl font-black text-base">+1</button>
+                        <button onclick="scoreReg(${g.id},2)" class="bg-amber-400 text-white w-12 h-12 rounded-xl font-black text-base">+2</button>
                     </div>
                 </div>
             `).join('');
         }
 
-        // 分數邏輯 (零和拉鋸)
         function scoreSpec(tid, d) {
             const tA = state.specialGroups[0], tB = state.specialGroups[1];
             const inDuel = tA.score >= 30 && tB.score >= 30;
@@ -304,9 +276,7 @@
                 state.specialGroups.find(x => x.id === tid).score += d;
             }
             if (tA.score < 0) tA.score = 0; if (tB.score < 0) tB.score = 0;
-            
             playEffect(d > 0 ? 'plus' : 'minus');
-
             if (!inDuel && tA.score >= 30 && tB.score >= 30) {
                 confetti({ particleCount: 150, origin: { y: 0.3 } });
                 playEffect('confetti');
@@ -327,24 +297,18 @@
             render(); syncState(); 
         }
         
-        function resetData() { if (confirm('確定要清空所有分數嗎？')) { state.specialGroups.forEach(g => g.score = 0); state.regularGroups.forEach(g => g.score = 0); render(); syncState(); } }
+        function resetData() { if (confirm('重置所有分數？')) { state.specialGroups.forEach(g => g.score = 0); state.regularGroups.forEach(g => g.score = 0); render(); syncState(); } }
 
-        // 骰子邏輯 (增減骰子)
         let curDice = [0];
         function openDiceModal() { if (curDice.length === 0) curDice = [0]; reRollAll(); document.getElementById('diceModal').classList.remove('hidden'); }
-        function changeDiceCount(d) {
-            if (d > 0) curDice.push(0);
-            else if (curDice.length > 1) curDice.pop();
-            reRollAll();
-        }
+        function changeDiceCount(d) { if (d > 0) curDice.push(0); else if (curDice.length > 1) curDice.pop(); reRollAll(); }
         function reRollAll() {
             const list = document.getElementById('diceList'); list.innerHTML = "";
             curDice.forEach((_, i) => {
-                const d = document.createElement('div'); d.className = "w-12 h-12 bg-white border-2 border-slate-900 rounded-lg flex items-center justify-center font-black text-xl shadow-sm"; d.innerText = "?"; list.appendChild(d);
+                const d = document.createElement('div'); d.className = "w-12 h-12 bg-white border-2 border-slate-900 rounded-lg flex items-center justify-center font-black text-xl"; d.innerText = "?"; list.appendChild(d);
                 setTimeout(() => { 
                     const v = Math.floor(Math.random() * 6) + 1; 
-                    d.innerText = v; 
-                    curDice[i] = v; 
+                    d.innerText = v; curDice[i] = v; 
                     document.getElementById('totalDiceScore').innerText = curDice.reduce((a, b) => a + b, 0); 
                 }, 200 + i * 100);
             });
@@ -352,7 +316,6 @@
         }
         function closeDiceModal() { document.getElementById('diceModal').classList.add('hidden'); }
 
-        // 計時器
         let timerSeconds = 0, timerInterval = null;
         function updateT() { document.getElementById('timerDisplay').innerText = `${Math.floor(timerSeconds/60).toString().padStart(2,'0')}:${(timerSeconds%60).toString().padStart(2,'0')}`; }
         function addTimer(s) { timerSeconds += s; updateT(); }
@@ -362,27 +325,19 @@
             else if (timerSeconds > 0) { 
                 document.getElementById('timerToggle').innerText = "暫停";
                 timerInterval = setInterval(() => { 
-                    if (timerSeconds > 0) { 
-                        timerSeconds--; 
-                        updateT(); 
-                    } else { 
-                        resetTimer(); 
-                        confetti();
-                        playEffect('confetti');
-                    } 
+                    if (timerSeconds > 0) { timerSeconds--; updateT(); } 
+                    else { resetTimer(); confetti(); playEffect('confetti'); } 
                 }, 1000); 
             }
         }
 
-        // 設定功能
         let activeSetting = '';
-        function openSettings(t) { activeSetting = t; document.getElementById('settingsModal').classList.remove('hidden'); document.getElementById('settingsTitle').innerText = t === 'students' ? '👤 抽人名單設定' : '⚙️ 獎懲設定'; document.getElementById('settingsInput').value = (t === 'students' ? state.students : state.events).join('\n'); }
+        function openSettings(t) { activeSetting = t; document.getElementById('settingsModal').classList.remove('hidden'); document.getElementById('settingsTitle').innerText = t === 'students' ? '👤 抽人名單' : '⚙️ 獎懲設定'; document.getElementById('settingsInput').value = (t === 'students' ? state.students : state.events).join('\n'); }
         function closeSettings() { document.getElementById('settingsModal').classList.add('hidden'); }
         function saveSettings() { const lines = document.getElementById('settingsInput').value.split('\n').filter(l => l.trim()); if (activeSetting === 'students') state.students = lines; else state.events = lines; closeSettings(); syncState(); }
 
-        // 抽籤功能
         function startPick(mode) {
-            const m = document.getElementById('pickModal'); m.classList.remove('hidden');
+            document.getElementById('pickModal').classList.remove('hidden');
             let list = mode === 'student' ? state.students : state.events;
             let i = 0; const it = setInterval(() => { document.getElementById('pickResult').innerText = list[Math.floor(Math.random() * list.length)]; if (i++ > 12) { clearInterval(it); confetti({ particleCount: 60 }); playEffect('confetti'); } }, 80);
         }
