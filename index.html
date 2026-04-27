@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課室計分榜 - 音量優化版</title>
+    <title>課室計分榜 - 微音量版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
@@ -146,19 +146,19 @@
             events: ["🎁 小組 +2", "🎁 個人 +1", "💀 全體 -1", "🎁 全組 +3"]
         };
 
-        // 修改後的音效控制：加入音量縮減
+        // 再次優化音效控制：將音量降至極低水準
         function playEffect(type) {
             const sound = document.getElementById(`sound-${type}`);
             if (sound) {
-                // 設定不同類型的音量
+                // 將音量設定為更極端的值以應對揚聲器靈敏度
                 if (type === 'plus') {
-                    sound.volume = 0.3; // 加分調小聲至 30%
+                    sound.volume = 0.1; // 降至 10%，非常輕微
                 } else if (type === 'minus' || type === 'confetti') {
-                    sound.volume = 0.5; // 其他設為 50%
+                    sound.volume = 0.2; // 降至 20%
                 }
                 
                 sound.currentTime = 0;
-                sound.play().catch(e => console.log("音效播放被阻止，請先點擊頁面"));
+                sound.play().catch(e => console.log("音效播放被阻止"));
             }
         }
 
