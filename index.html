@@ -44,6 +44,9 @@
             padding: 4px 8px; border-radius: 20px; z-index: 100;
             display: none;
         }
+
+        .shard-badge { font-size: 14px; background: #f1f5f9; padding: 2px 6px; border-radius: 6px; border: 1px solid #e2e8f0; }
+        .shield-active { color: #3b82f6; filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.5)); }
     </style>
 </head>
 <body class="p-2 gap-2">
@@ -132,13 +135,16 @@
         const API_URL = `https://api.npoint.io/${BIN_ID}`;
 
         let state = {
-            specialGroups: [{ id: 'A', name: '學霸聯盟', score: 0 }, { id: 'B', name: '壞蛋聯盟', score: 0 }],
+            specialGroups: [
+                { id: 'A', name: '學霸聯盟', score: 0, shard: 0, shield: false }, 
+                { id: 'B', name: '壞蛋聯盟', score: 0, shard: 0, shield: false }
+            ],
             regularGroups: [
-                { id: 1, name: '第一組', score: 0, color: 'bg-blue-500', border: 'border-blue-500' },
-                { id: 2, name: '第二組', score: 0, color: 'bg-green-500', border: 'border-green-500' },
-                { id: 3, name: '第三組', score: 0, color: 'bg-purple-500', border: 'border-purple-500' },
-                { id: 4, name: '第四組', score: 0, color: 'bg-orange-500', border: 'border-orange-500' },
-                { id: 5, name: '第五組', score: 0, color: 'bg-pink-500', border: 'border-pink-500' }
+                { id: 1, name: '第一組', score: 0, color: 'bg-blue-500', border: 'border-blue-500', shard: 0, shield: false },
+                { id: 2, name: '第二組', score: 0, color: 'bg-green-500', border: 'border-green-500', shard: 0, shield: false },
+                { id: 3, name: '第三組', score: 0, color: 'bg-purple-500', border: 'border-purple-500', shard: 0, shield: false },
+                { id: 4, name: '第四組', score: 0, color: 'bg-orange-500', border: 'border-orange-500', shard: 0, shield: false },
+                { id: 5, name: '第五組', score: 0, color: 'bg-pink-500', border: 'border-pink-500', shard: 0, shield: false }
             ],
             students: ["學生A", "學生B"],
             events: ["🎁 小組 +5", "💀 全體 -2"]
@@ -157,7 +163,18 @@
             showIndicator(true);
             try {
                 const res = await fetch(API_URL);
-                if (res.ok) { const data = await res.json(); if (data && data.specialGroups) { state = data; render(); } }
+                if (res.ok) { 
+                    const data = await res.json(); 
+                    if (data && data.specialGroups) { 
+                        // 合併舊數據確保新欄位存在
+                        state = {
+                            ...data,
+                            specialGroups: data.specialGroups.map(g => ({ shard: 0, shield: false, ...g })),
+                            regularGroups: data.regularGroups.map(g => ({ shard: 0, shield: false, ...g }))
+                        };
+                        render(); 
+                    } 
+                }
             } catch (err) {}
             showIndicator(false);
         }
@@ -169,6 +186,22 @@
         }
 
         function showIndicator(show) { document.getElementById('sync-indicator').style.display = show ? 'block' : 'none'; }
+
+        function toggleShard(type, id) {
+            let group = type === 'special' ? state.specialGroups.find(g => g.id === id) : state.regularGroups.find(g => g.id === id);
+            group.shard = (group.shard + 1) % 5; // 0, 1, 2, 3, 4
+            playEffect('plus');
+            render();
+            syncState();
+        }
+
+        function toggleShield(type, id) {
+            let group = type === 'special' ? state.specialGroups.find(g => g.id === id) : state.regularGroups.find(g => g.id === id);
+            group.shield = !group.shield;
+            playEffect('plus');
+            render();
+            syncState();
+        }
 
         function manualEditScore(type, id) {
             let group = type === 'special' 
@@ -199,10 +232,18 @@
             const total = tA.score + tB.score;
             const leftW = total > 0 ? (tA.score / total) * 100 : 50;
 
+            const shardEmoji = (n) => n === 0 ? "🧩0" : "🧩" + n;
+
             document.getElementById('special-zone').innerHTML = `
                 <div class="flex justify-between items-center mb-2">
                     <div class="flex items-center gap-2">
-                        <span class="text-lg font-black text-white cursor-pointer" onclick="editGroupName('special','A')">${tA.name} ✎</span>
+                        <div class="flex flex-col">
+                            <span class="text-lg font-black text-white cursor-pointer" onclick="editGroupName('special','A')">${tA.name} ✎</span>
+                            <div class="flex gap-2 mt-1">
+                                <button onclick="toggleShard('special','A')" class="shard-badge text-slate-800">${shardEmoji(tA.shard)}</button>
+                                <button onclick="toggleShield('special','A')" class="shard-badge ${tA.shield ? 'text-blue-500' : 'text-slate-300'}">🛡️</button>
+                            </div>
+                        </div>
                         <div class="flex gap-1">
                             <button onclick="scoreSpec('A',-1)" class="bg-slate-700 text-white w-7 h-7 rounded font-bold text-[10px]">-1</button>
                             <button onclick="scoreSpec('A',1)" class="bg-red-500 text-white w-7 h-7 rounded font-bold text-[10px]">+1</button>
@@ -220,7 +261,13 @@
                             <button onclick="scoreSpec('B',1)" class="bg-blue-500 text-white w-7 h-7 rounded font-bold text-[10px]">+1</button>
                             <button onclick="scoreSpec('B',-1)" class="bg-slate-700 text-white w-7 h-7 rounded font-bold text-[10px]">-1</button>
                         </div>
-                        <span class="text-lg font-black text-white cursor-pointer" onclick="editGroupName('special','B')">${tB.name} ✎</span>
+                        <div class="flex flex-col">
+                            <span class="text-lg font-black text-white cursor-pointer" onclick="editGroupName('special','B')">${tB.name} ✎</span>
+                            <div class="flex gap-2 mt-1 justify-end">
+                                <button onclick="toggleShield('special','B')" class="shard-badge ${tB.shield ? 'text-blue-500' : 'text-slate-300'}">🛡️</button>
+                                <button onclick="toggleShard('special','B')" class="shard-badge text-slate-800">${shardEmoji(tB.shard)}</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="duel-track">
@@ -231,10 +278,14 @@
             const maxVal = Math.max(...state.regularGroups.map(g => g.score), 50);
             document.getElementById('regular-zone').innerHTML = state.regularGroups.map(g => `
                 <div class="bg-white rounded-xl px-4 py-2 flex items-center justify-between flex-grow shadow-sm border-l-4 ${g.border}">
+                    <div class="flex flex-col items-center mr-2 gap-1">
+                        <button onclick="toggleShard('regular', ${g.id})" class="shard-badge text-xs">${shardEmoji(g.shard)}</button>
+                        <button onclick="toggleShield('regular', ${g.id})" class="shard-badge text-xs ${g.shield ? 'text-blue-500 border-blue-200 bg-blue-50' : 'text-slate-300'}">🛡️</button>
+                    </div>
                     <div class="flex flex-col flex-grow items-center">
                         <span class="text-xs font-bold text-slate-400 cursor-pointer" onclick="editGroupName('regular', ${g.id})">${g.name} ✎</span>
                         <span class="text-4xl font-black text-slate-900 tabular-nums leading-none score-clickable" onclick="manualEditScore('regular', ${g.id})">${g.score}</span>
-                        <div class="group-progress-bar w-32"><div class="group-progress-fill ${g.color}" style="width: ${Math.min((g.score/maxVal)*100, 100)}%"></div></div>
+                        <div class="group-progress-bar w-24"><div class="group-progress-fill ${g.color}" style="width: ${Math.min((g.score/maxVal)*100, 100)}%"></div></div>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
                         <button onclick="scoreReg(${g.id},-1)" class="bg-slate-100 text-slate-400 w-10 h-10 rounded-xl font-black text-xs border border-slate-200">-1</button>
@@ -265,7 +316,13 @@
         }
 
         function addOneToAll() { state.regularGroups.forEach(g => g.score++); playEffect('plus'); render(); syncState(); }
-        function resetData() { if (confirm('重置所有分數？')) { state.specialGroups.forEach(g => g.score = 0); state.regularGroups.forEach(g => g.score = 0); render(); syncState(); } }
+        function resetData() { 
+            if (confirm('重置所有分數與獎勵？')) { 
+                state.specialGroups.forEach(g => { g.score = 0; g.shard = 0; g.shield = false; }); 
+                state.regularGroups.forEach(g => { g.score = 0; g.shard = 0; g.shield = false; }); 
+                render(); syncState(); 
+            } 
+        }
 
         let curDice = [0];
         function openDiceModal() { if (curDice.length === 0) curDice = [0]; reRollAll(); document.getElementById('diceModal').classList.remove('hidden'); }
