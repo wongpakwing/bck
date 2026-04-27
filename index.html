@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課室計分榜 - 拉鋸模式優化版</title>
+    <title>課室計分榜 - 專業教學版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
@@ -14,40 +14,35 @@
         .shard-icon { font-size: 11px; cursor: pointer; filter: grayscale(100%) opacity(30%); padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,0.05); border: 1px solid transparent; display: inline-flex; align-items: center; user-select: none; }
         .shard-icon.active { filter: grayscale(0%) opacity(100%) !important; background: #ffffff !important; border-color: #fbbf24; color: #b45309; font-weight: bold; }
         
-        .shield-btn { cursor: pointer; filter: opacity(20%); font-size: 18px; user-select: none; }
-        .shield-btn.active { filter: opacity(100%) drop-shadow(0 0 4px #3b82f6); }
-        
         .duel-track { position: relative; height: 12px; background: #0f172a; border-radius: 6px; overflow: hidden; margin-top: 8px; border: 1px solid rgba(255,255,255,0.1); }
         .progress-left { position: absolute; left: 0; height: 100%; background: linear-gradient(90deg, #ef4444, #f87171); transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
         .progress-right { position: absolute; right: 0; height: 100%; background: linear-gradient(90deg, #60a5fa, #3b82f6); transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
         
-        .tug-of-war-active { animation: tug-pulse 1s infinite; border: 2px solid #f43f5e !important; }
+        .tug-of-war-active { animation: tug-pulse 1s infinite; border: 2px solid #ef4444 !important; }
         @keyframes tug-pulse {
             0%, 100% { box-shadow: 0 0 5px #ef4444; }
-            50% { box-shadow: 0 0 20px #ef4444; }
+            50% { box-shadow: 0 0 15px #ef4444; }
         }
 
         .score-btn { width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 900; transition: transform 0.1s; }
         .score-btn:active { transform: scale(0.9); }
 
-        /* 骰子樣式：白底黑字方塊 */
+        /* 骰子方塊樣式 */
         .dice-cube { 
-            width: 80px; height: 80px; 
+            width: 60px; height: 60px; 
             background: white; 
             color: #1e293b; 
-            border: 4px solid #1e293b; 
-            border-radius: 16px; 
-            display: flex; items-center; justify-center; 
-            font-size: 48px; font-weight: 900; 
-            box-shadow: 4px 4px 0px #1e293b;
+            border: 3px solid #1e293b; 
+            border-radius: 12px; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 32px; font-weight: 900; 
+            box-shadow: 3px 3px 0px #1e293b;
         }
         .dice-rolling { animation: dice-shake 0.1s infinite; }
         @keyframes dice-shake {
             0% { transform: translate(2px, 2px) rotate(0deg); }
-            25% { transform: translate(-2px, -2px) rotate(-5deg); }
-            50% { transform: translate(2px, -2px) rotate(5deg); }
-            75% { transform: translate(-2px, 2px) rotate(-2deg); }
-            100% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(-2px, -2px) rotate(5deg); }
+            100% { transform: translate(2px, -2px) rotate(-5deg); }
         }
     </style>
 </head>
@@ -60,13 +55,13 @@
             <button onclick="openSettings('shards')" class="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-[11px] font-bold">🧩 碎片</button>
         </div>
         <div class="flex items-center gap-1">
-            <span id="syncStatus" class="text-[9px] text-slate-400 mr-2">● 正在連線</span>
+            <span id="syncStatus" class="text-[9px] text-slate-400 mr-2">● 連線正常</span>
             <button onclick="addScoreToAll(1)" class="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold">全體+1</button>
             <button onclick="resetData()" class="bg-slate-200 text-slate-500 px-3 py-1.5 rounded-lg text-[11px] font-bold">重置</button>
         </div>
     </header>
 
-    <!-- 特殊組別 -->
+    <!-- 特殊組別 (拉鋸戰核心) -->
     <div id="special-zone" class="bg-slate-900 rounded-xl p-3 shrink-0 shadow-lg text-white mb-1 transition-all duration-300">
         <!-- JS 填充 -->
     </div>
@@ -103,11 +98,37 @@
         </div>
     </footer>
 
-    <!-- 彈窗內容 (略) -->
+    <!-- 骰子彈窗 (增強版) -->
+    <div id="diceModal" class="hidden fixed inset-0 bg-black/80 z-[130] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-sm text-center border-4 border-rose-400 shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <span class="text-slate-500 font-bold">骰子數量</span>
+                <div class="flex items-center gap-4">
+                    <button onclick="changeDiceCount(-1)" class="w-10 h-10 bg-slate-100 rounded-full text-xl font-bold">-</button>
+                    <span id="diceNumText" class="text-2xl font-black">1</span>
+                    <button onclick="changeDiceCount(1)" class="w-10 h-10 bg-slate-100 rounded-full text-xl font-bold">+</button>
+                </div>
+            </div>
+            
+            <div id="diceArea" class="flex flex-wrap justify-center gap-3 min-h-[140px] items-center mb-4">
+                <!-- 骰子方塊會出現在這 -->
+            </div>
+            
+            <div id="diceTotalLabel" class="text-slate-400 text-xs font-bold uppercase mb-1 hidden">總和</div>
+            <div id="diceTotalValue" class="text-4xl font-black text-rose-500 mb-6 hidden">0</div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <button id="rollBtn" onclick="rollDices()" class="bg-rose-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-transform">重新再擲</button>
+                <button onclick="closeModal('diceModal')" class="bg-slate-900 text-white py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-transform">確認結果</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 設置與抽籤彈窗 (隱藏) -->
     <div id="settingsModal" class="hidden fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl p-5 w-full max-w-sm">
-            <h3 id="settingsTitle" class="text-lg font-black mb-2 text-slate-800">編輯</h3>
-            <textarea id="settingsInput" class="w-full h-48 p-3 border border-slate-200 rounded-xl font-mono text-sm mb-4 outline-none text-slate-700"></textarea>
+            <h3 id="settingsTitle" class="text-lg font-black mb-2">編輯</h3>
+            <textarea id="settingsInput" class="w-full h-48 p-3 border border-slate-200 rounded-xl font-mono text-sm mb-4 outline-none"></textarea>
             <div class="flex gap-2">
                 <button onclick="closeModal('settingsModal')" class="flex-1 bg-slate-100 py-2.5 rounded-lg text-sm font-bold text-slate-400">取消</button>
                 <button onclick="saveSettings()" class="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-bold">儲存</button>
@@ -115,96 +136,66 @@
         </div>
     </div>
 
-    <div id="pickModal" class="hidden fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4">
+    <div id="pickModal" class="hidden fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4 text-slate-800">
         <div class="bg-white rounded-3xl p-8 w-full max-w-xs text-center border-4 border-amber-400 shadow-2xl">
-            <div id="pickResult" class="text-3xl font-black text-slate-800 min-h-[80px] flex items-center justify-center leading-tight">...</div>
+            <div id="pickResult" class="text-3xl font-black min-h-[80px] flex items-center justify-center leading-tight">...</div>
             <button onclick="closeModal('pickModal')" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold mt-6">確認</button>
-        </div>
-    </div>
-
-    <!-- 骰子彈窗 (簡化版) -->
-    <div id="diceModal" class="hidden fixed inset-0 bg-black/80 z-[130] flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl p-10 w-full max-w-xs text-center border-4 border-rose-400 shadow-2xl">
-            <div id="diceWrapper" class="flex justify-center mb-8">
-                <div id="diceDisplay" class="dice-cube">🎲</div>
-            </div>
-            <button id="rollBtn" onclick="rollOneDice()" class="w-full bg-rose-500 text-white py-4 rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition-transform">擲骰子！</button>
-            <button onclick="closeModal('diceModal')" class="w-full bg-slate-100 text-slate-400 py-3 rounded-2xl font-bold mt-4">關閉</button>
         </div>
     </div>
 
     <script>
         const API_URL = 'https://api.npoint.io/085cbfd3a843d7d7df1a';
-
         const DEFAULT_STATE = {
             specialGroups: [
-                { id: 'A', name: '學霸聯盟', score: 0, shards: [false,false,false,false], shield: false }, 
-                { id: 'B', name: '壞蛋聯盟', score: 0, shards: [false,false,false,false], shield: false }
+                { id: 'A', name: '學霸聯盟', score: 0, shards: [false,false,false,false] }, 
+                { id: 'B', name: '壞蛋聯盟', score: 0, shards: [false,false,false,false] }
             ],
-            regularGroups: [
-                { id: 1, name: '第一組', score: 0, shards: [false,false,false,false], shield: false },
-                { id: 2, name: '第二組', score: 0, shards: [false,false,false,false], shield: false },
-                { id: 3, name: '第三組', score: 0, shards: [false,false,false,false], shield: false },
-                { id: 4, name: '第四組', score: 0, shards: [false,false,false,false], shield: false },
-                { id: 5, name: '第五組', score: 0, shards: [false,false,false,false], shield: false }
-            ],
-            students: ["學生1", "學生2", "學生3"],
-            events: ["好表現 +1", "幫助他人 +2"],
-            shards: ["🧩 碎片1", "🧩 碎片2", "🧩 碎片3", "🧩 碎片4"],
-            tugOfWarActive: false
+            regularGroups: Array.from({length:5}, (_,i)=>({ id: i+1, name: `第 ${i+1} 組`, score: 0, shards: [false,false,false,false] })),
+            students: ["學生1", "學生2"],
+            events: ["好表現 +1"],
+            shards: ["碎片1"]
         };
 
         let state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+        let tugOfWarActive = false;
 
         async function loadData() {
             try {
                 const res = await fetch(API_URL);
                 if (res.ok) {
-                    const cloud = await res.json();
-                    if (cloud && cloud.regularGroups) {
-                        state = { ...DEFAULT_STATE, ...cloud };
-                    }
+                    const data = await res.json();
+                    if (data && data.regularGroups) state = { ...DEFAULT_STATE, ...data };
                 }
-            } catch (e) { console.log("Offline mode"); }
+            } catch (e) { console.log("Offline"); }
             render();
         }
 
         async function saveData() {
-            document.getElementById('syncStatus').innerText = "○ 同步中...";
             try {
-                await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(state)
-                });
-                document.getElementById('syncStatus').innerText = "● 已同步";
-            } catch (e) { document.getElementById('syncStatus').innerText = "× 失敗"; }
+                await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(state) });
+            } catch (e) {}
         }
 
         function render() {
             const sA = state.specialGroups[0], sB = state.specialGroups[1];
             
-            // 拉鋸戰邏輯：當雙方 >= 30 且曾經相等時激活
-            if (!state.tugOfWarActive && sA.score >= 30 && sB.score >= 30 && sA.score === sB.score) {
-                state.tugOfWarActive = true;
-            }
+            // 拉鋸戰邏輯：雙方皆達 30 且 分數相等時瞬間觸發，只要分數不同就失效
+            tugOfWarActive = (sA.score >= 30 && sB.score >= 30 && sA.score === sB.score);
 
             const total = sA.score + sB.score;
             const leftW = total > 0 ? (sA.score / total) * 100 : 50;
             const zone = document.getElementById('special-zone');
             
-            if (state.tugOfWarActive) zone.classList.add('tug-of-war-active');
+            if (tugOfWarActive) zone.classList.add('tug-of-war-active');
             else zone.classList.remove('tug-of-war-active');
 
             zone.innerHTML = `
-                <div class="text-center mb-2">
-                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-white/20">
-                        ${state.tugOfWarActive ? '🔥 拉鋸模式激活 🔥' : '聯盟對抗賽 (30分觸發拉鋸)'}
-                    </span>
+                <div class="text-center h-4 mb-2">
+                    ${tugOfWarActive ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-red-600 text-white animate-pulse">🔥 拉鋸模式：此消彼長 🔥</span>' : ''}
                 </div>
                 <div class="flex justify-between items-start">
                     <div class="flex flex-col gap-1.5 flex-1">
-                        <span class="text-[11px] font-bold text-red-400" onclick="editName('special','A')">${sA.name}</span>
+                        <span class="text-[11px] font-bold text-red-400" onclick="editName('special','A')">${sA.name} ✎</span>
                         <div class="flex items-center gap-1">${sA.shards.map((s,i)=>`<div onclick="toggleShard('special','A',${i})" class="shard-icon ${s?'active':''}">🧩${i+1}</div>`).join('')}</div>
                         <div class="flex gap-1.5 mt-2">
                             <button onclick="addSpecialScore('A',1)" class="score-btn bg-red-500 rounded-lg text-xs">+1</button>
@@ -218,7 +209,7 @@
                         </div>
                     </div>
                     <div class="flex flex-col gap-1.5 flex-1 items-end text-right">
-                        <span class="text-[11px] font-bold text-blue-400" onclick="editName('special','B')">${sB.name}</span>
+                        <span class="text-[11px] font-bold text-blue-400" onclick="editName('special','B')">${sB.name} ✎</span>
                         <div class="flex items-center gap-1">${sB.shards.map((s,i)=>`<div onclick="toggleShard('special','B',${i})" class="shard-icon ${s?'active':''}">🧩${i+1}</div>`).join('')}</div>
                         <div class="flex gap-1.5 mt-2">
                             <button onclick="addSpecialScore('B',2)" class="score-btn bg-blue-600 rounded-lg text-xs">+2</button>
@@ -232,12 +223,10 @@
             document.getElementById('regular-zone').innerHTML = state.regularGroups.map(g => `
                 <div class="bg-white rounded-2xl p-2 flex items-center justify-between shadow-sm border border-slate-100">
                     <div class="flex flex-col flex-1 min-w-0">
-                        <span class="text-[11px] font-bold text-slate-400" onclick="editName('regular',${g.id})">${g.name}</span>
+                        <span class="text-[11px] font-bold text-slate-400" onclick="editName('regular',${g.id})">${g.name} ✎</span>
                         <div class="flex gap-1">${g.shards.map((s,i)=>`<div onclick="toggleShard('regular',${g.id},${i})" class="shard-icon ${s?'active':''}">🧩${i+1}</div>`).join('')}</div>
                     </div>
-                    <div class="flex-grow text-center px-2">
-                        <span class="text-3xl font-black text-slate-900" onclick="modifyScore('regular',${g.id})">${g.score}</span>
-                    </div>
+                    <div class="flex-grow text-center"><span class="text-3xl font-black text-slate-900" onclick="modifyScore('regular',${g.id})">${g.score}</span></div>
                     <div class="flex gap-1.5 ml-2">
                         <button onclick="addScore('regular',${g.id},1)" class="score-btn bg-emerald-500 text-white rounded-xl text-xl">+1</button>
                         <button onclick="addScore('regular',${g.id},-1)" class="score-btn bg-slate-100 text-slate-400 rounded-xl text-xl border">-1</button>
@@ -246,45 +235,59 @@
             `).join('');
         }
 
-        // 分數邏輯
+        // 分數操作
         function addSpecialScore(target, val) {
             const sA = state.specialGroups[0], sB = state.specialGroups[1];
             if (target === 'A') {
                 sA.score += val;
-                if (state.tugOfWarActive) sB.score = Math.max(0, sB.score - val);
+                if (tugOfWarActive) sB.score = Math.max(0, sB.score - val); // 此消彼長
             } else {
                 sB.score += val;
-                if (state.tugOfWarActive) sA.score = Math.max(0, sA.score - val);
+                if (tugOfWarActive) sA.score = Math.max(0, sA.score - val); // 此消彼長
             }
             render(); saveData();
         }
-
         function addScore(type, id, val) {
             const grp = state.regularGroups.find(g => g.id == id);
             if (grp) { grp.score = Math.max(0, grp.score + val); render(); saveData(); }
         }
 
-        // 骰子功能
+        // 骰子增強版
+        let diceCount = 1;
         function openDiceModal() {
             document.getElementById('diceModal').classList.remove('hidden');
-            document.getElementById('diceDisplay').innerText = '🎲';
+            rollDices(); // 打開直接擲一次
         }
-        function rollOneDice() {
-            const display = document.getElementById('diceDisplay');
+        function changeDiceCount(v) {
+            diceCount = Math.max(1, Math.min(6, diceCount + v));
+            document.getElementById('diceNumText').innerText = diceCount;
+            rollDices();
+        }
+        function rollDices() {
+            const area = document.getElementById('diceArea');
+            const totalLabel = document.getElementById('diceTotalLabel');
+            const totalVal = document.getElementById('diceTotalValue');
             const btn = document.getElementById('rollBtn');
-            btn.disabled = true;
-            display.classList.add('dice-rolling');
             
-            let count = 0;
+            btn.disabled = true;
+            area.innerHTML = Array(diceCount).fill(0).map(() => `<div class="dice-cube dice-rolling">?</div>`).join('');
+            totalLabel.classList.add('hidden');
+            totalVal.classList.add('hidden');
+
+            let ticks = 0;
             const timer = setInterval(() => {
-                display.innerText = Math.floor(Math.random() * 6) + 1;
-                if (count++ > 15) {
+                const results = Array(diceCount).fill(0).map(() => Math.floor(Math.random() * 6) + 1);
+                area.innerHTML = results.map(r => `<div class="dice-cube">${r}</div>`).join('');
+                if (ticks++ > 15) {
                     clearInterval(timer);
-                    display.classList.remove('dice-rolling');
-                    const res = Math.floor(Math.random() * 6) + 1;
-                    display.innerText = res;
                     btn.disabled = false;
-                    confetti({ particleCount: 30, spread: 50, origin: { y: 0.7 } });
+                    const sum = results.reduce((a,b)=>a+b, 0);
+                    if (diceCount > 1) {
+                        totalLabel.classList.remove('hidden');
+                        totalVal.classList.remove('hidden');
+                        totalVal.innerText = sum;
+                    }
+                    confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
                 }
             }, 60);
         }
@@ -295,32 +298,36 @@
         function addTimer(s) { tSec += s; updateT(); }
         function clearTimer() { tSec = 0; if(tInt) toggleTimer(); updateT(); }
         function toggleTimer() {
-            if (tInt) { clearInterval(tInt); tInt = null; document.getElementById('timerToggle').innerText = "開始"; }
+            const btn = document.getElementById('timerToggle');
+            if (tInt) { clearInterval(tInt); tInt = null; btn.innerText = "開始"; }
             else if (tSec > 0) {
-                document.getElementById('timerToggle').innerText = "暫停";
-                tInt = setInterval(() => { if (tSec > 0) { tSec--; updateT(); } else { clearInterval(tInt); tInt = null; confetti(); } }, 1000);
+                btn.innerText = "暫停";
+                tInt = setInterval(() => { 
+                    if (tSec > 0) { tSec--; updateT(); } 
+                    else { clearInterval(tInt); tInt = null; btn.innerText = "開始"; confetti(); }
+                }, 1000);
             }
         }
 
-        // 通用
+        // 基本通用功能
         function toggleShard(type, id, i) {
             const grp = type==='special'? state.specialGroups.find(g=>g.id===id) : state.regularGroups.find(g=>g.id==id);
             grp.shards[i] = !grp.shards[i]; render(); saveData();
         }
         function addScoreToAll(v) { state.regularGroups.forEach(g => g.score += v); render(); saveData(); }
-        function resetData() { if(confirm("重置所有分數？")){ state = JSON.parse(JSON.stringify(DEFAULT_STATE)); render(); saveData(); } }
+        function resetData() { if(confirm("確定重置全體分數？")){ state = JSON.parse(JSON.stringify(DEFAULT_STATE)); render(); saveData(); } }
         function editName(type, id) { 
             const grp = type==='special'? state.specialGroups.find(g=>g.id===id) : state.regularGroups.find(g=>g.id==id);
-            const n = prompt("新名稱", grp.name); if(n) { grp.name = n; render(); saveData(); }
+            const n = prompt("輸入名稱", grp.name); if(n) { grp.name = n; render(); saveData(); }
         }
         function modifyScore(type, id) {
             const grp = type==='special'? state.specialGroups.find(g=>g.id===id) : state.regularGroups.find(g=>g.id==id);
-            const n = prompt("修改分數", grp.score); if(n !== null) { grp.score = parseInt(n) || 0; render(); saveData(); }
+            const n = prompt("修改數值", grp.score); if(n !== null) { grp.score = parseInt(n) || 0; render(); saveData(); }
         }
         function openSettings(m) {
             activeMode = m;
             document.getElementById('settingsModal').classList.remove('hidden');
-            document.getElementById('settingsTitle').innerText = m==='students'?'編輯學生':'編輯清單';
+            document.getElementById('settingsTitle').innerText = m==='students'?'編輯名單':'編輯內容';
             document.getElementById('settingsInput').value = (state[m] || []).join('\n');
         }
         function saveSettings() {
