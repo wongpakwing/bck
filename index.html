@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課室計分榜 - 穩定修復版</title>
+    <title>課室計分榜 - 完整版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
@@ -40,6 +40,14 @@
         .score-btn { width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 900; }
         #regular-zone::-webkit-scrollbar { width: 4px; }
         #regular-zone::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        /* 骰子動畫 */
+        .dice-roll { animation: roll 0.1s infinite; }
+        @keyframes roll {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-10px) rotate(10deg); }
+            100% { transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -92,22 +100,32 @@
         </div>
     </footer>
 
-    <!-- 彈窗 -->
+    <!-- 設置彈窗 -->
     <div id="settingsModal" class="hidden fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4 text-slate-800">
         <div class="bg-white rounded-2xl p-5 w-full max-w-sm">
             <h3 id="settingsTitle" class="text-lg font-black mb-2">編輯</h3>
             <textarea id="settingsInput" class="w-full h-48 p-3 border border-slate-200 rounded-xl font-mono text-sm mb-4 outline-none"></textarea>
             <div class="flex gap-2">
-                <button onclick="document.getElementById('settingsModal').classList.add('hidden')" class="flex-1 bg-slate-100 py-2.5 rounded-lg text-sm font-bold text-slate-400">取消</button>
+                <button onclick="closeModal('settingsModal')" class="flex-1 bg-slate-100 py-2.5 rounded-lg text-sm font-bold text-slate-400">取消</button>
                 <button onclick="saveSettings()" class="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-bold">儲存</button>
             </div>
         </div>
     </div>
 
+    <!-- 抽籤彈窗 -->
     <div id="pickModal" class="hidden fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4 text-slate-800">
         <div class="bg-white rounded-3xl p-8 w-full max-w-xs text-center border-4 border-amber-400 shadow-2xl">
-            <div id="pickResult" class="text-3xl font-black min-h-[80px] flex items-center justify-center">...</div>
-            <button onclick="document.getElementById('pickModal').classList.add('hidden')" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold mt-6">確認</button>
+            <div id="pickResult" class="text-3xl font-black min-h-[80px] flex items-center justify-center leading-tight">...</div>
+            <button onclick="closeModal('pickModal')" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold mt-6">確認</button>
+        </div>
+    </div>
+
+    <!-- 骰子彈窗 -->
+    <div id="diceModal" class="hidden fixed inset-0 bg-black/80 z-[130] flex items-center justify-center p-4 text-slate-800">
+        <div class="bg-white rounded-3xl p-8 w-full max-w-xs text-center border-4 border-rose-400 shadow-2xl">
+            <div id="diceValue" class="text-8xl font-black text-rose-500 mb-4 h-32 flex items-center justify-center">🎲</div>
+            <button id="rollBtn" onclick="rollDice()" class="w-full bg-rose-500 text-white py-4 rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition-transform">擲骰子！</button>
+            <button onclick="closeModal('diceModal')" class="w-full bg-slate-100 text-slate-400 py-3 rounded-2xl font-bold mt-4">關閉</button>
         </div>
     </div>
 
@@ -140,7 +158,6 @@
                 if (res.ok) {
                     const cloud = await res.json();
                     if (cloud && cloud.regularGroups) {
-                        // 合併數據，確保結構完整
                         state = { ...DEFAULT_STATE, ...cloud };
                         statusEl.innerText = "● 已連線";
                     }
@@ -229,12 +246,12 @@
                 `).join('');
             } catch (err) {
                 console.error(err);
-                state = JSON.parse(JSON.stringify(DEFAULT_STATE)); // 發生錯誤時重置
+                state = JSON.parse(JSON.stringify(DEFAULT_STATE)); 
                 render();
             }
         }
 
-        // 功能邏輯
+        // 基本操作
         function addScore(type, id, val) {
             const grp = type === 'special' ? state.specialGroups.find(g => g.id === id) : state.regularGroups.find(g => g.id == id);
             if (grp) { grp.score = Math.max(0, grp.score + val); render(); saveData(); }
@@ -258,7 +275,7 @@
             const n = prompt("修改分數", grp.score); if(n !== null) { grp.score = parseInt(n) || 0; render(); saveData(); }
         }
 
-        // 彈窗設定
+        // 設置
         let activeMode = '';
         function openSettings(m) {
             activeMode = m;
@@ -269,11 +286,11 @@
         function saveSettings() {
             const lines = document.getElementById('settingsInput').value.split('\n').filter(l => l.trim());
             state[activeMode] = lines;
-            document.getElementById('settingsModal').classList.add('hidden');
+            closeModal('settingsModal');
             saveData();
         }
 
-        // 抽籤邏輯
+        // 抽籤
         function startPick(mode) {
             const list = mode === 'student' ? state.students : (mode === 'event' ? state.events : state.shards);
             if (!list || list.length === 0) { alert("名單為空，請點擊上方按鈕編輯名單！"); return; }
@@ -281,9 +298,36 @@
             let i = 0;
             const timer = setInterval(() => {
                 document.getElementById('pickResult').innerText = list[Math.floor(Math.random() * list.length)];
-                if (i++ > 15) { clearInterval(timer); confetti({ spread: 70 }); }
+                if (i++ > 15) { clearInterval(timer); confetti({ spread: 70, origin: { y: 0.6 } }); }
             }, 60);
         }
+
+        // 骰子功能
+        function openDiceModal() {
+            document.getElementById('diceModal').classList.remove('hidden');
+            document.getElementById('diceValue').innerText = '🎲';
+        }
+        function rollDice() {
+            const display = document.getElementById('diceValue');
+            const btn = document.getElementById('rollBtn');
+            btn.disabled = true;
+            display.classList.add('dice-roll');
+            
+            let count = 0;
+            const timer = setInterval(() => {
+                display.innerText = Math.floor(Math.random() * 6) + 1;
+                if (count++ > 20) {
+                    clearInterval(timer);
+                    display.classList.remove('dice-roll');
+                    const final = Math.floor(Math.random() * 6) + 1;
+                    display.innerText = final;
+                    btn.disabled = false;
+                    if (final === 6) confetti({ colors: ['#f43f5e'] });
+                }
+            }, 50);
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
         // 計時器
         let tSec = 0, tInt = null;
