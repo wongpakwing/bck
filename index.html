@@ -29,13 +29,14 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            background: rgba(0,0,0,0.05);
         }
         /* 亮起狀態：恢復色彩、增加不透明度與陰影 */
         .shard-icon.active {
             filter: grayscale(0%) opacity(100%) !important;
-            background: #ffffff;
+            background: #ffffff !important;
             border-color: #e2e8f0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
             transform: scale(1.1);
         }
         .shield-btn {
@@ -146,11 +147,14 @@
             events: ["🎁 碎片 +1", "🛡️ 獲保護卡", "💀 全體 -2"]
         };
 
-        // 修改點擊邏輯，確保狀態正確切換
+        // 切換碎片狀態
         function toggleShard(type, gId, index) {
-            const group = type === 'special' ? 
-                state.specialGroups.find(g => g.id === gId) : 
-                state.regularGroups.find(g => g.id == gId);
+            let group;
+            if (type === 'special') {
+                group = state.specialGroups.find(g => g.id === gId);
+            } else {
+                group = state.regularGroups.find(g => g.id == gId);
+            }
             
             if (group) {
                 group.shards[index] = !group.shards[index];
@@ -158,10 +162,14 @@
             }
         }
 
+        // 切換盾牌狀態
         function toggleShield(type, gId) {
-            const group = type === 'special' ? 
-                state.specialGroups.find(g => g.id === gId) : 
-                state.regularGroups.find(g => g.id == gId);
+            let group;
+            if (type === 'special') {
+                group = state.specialGroups.find(g => g.id === gId);
+            } else {
+                group = state.regularGroups.find(g => g.id == gId);
+            }
             
             if (group) {
                 group.shield = !group.shield;
@@ -169,19 +177,21 @@
             }
         }
 
+        // 渲染碎片圖標
         function renderShards(type, gId, shardStates) {
             return shardStates.map((active, idx) => `
-                <span onclick="toggleShard('${type}', '${gId}', ${idx})" 
-                      class="shard-icon ${active ? 'active' : ''}">🧩${idx+1}</span>
+                <div onclick="toggleShard('${type}', '${gId}', ${idx})" 
+                     class="shard-icon ${active ? 'active' : ''}">🧩${idx+1}</div>
             `).join('');
         }
 
+        // 渲染主畫面
         function render() {
             const tA = state.specialGroups[0], tB = state.specialGroups[1];
             const total = tA.score + tB.score;
             const leftW = total > 0 ? (tA.score / total) * 100 : 50;
 
-            // 特殊組渲染
+            // 特殊組渲染 (置頂兩組)
             document.getElementById('special-zone').innerHTML = `
                 <div class="flex justify-between items-center mb-1">
                     <div class="flex flex-col gap-1">
@@ -213,7 +223,7 @@
                 </div>
             `;
 
-            // 常規組渲染 (維持按鈕：+2, +1, -1)
+            // 常規組渲染 (下方五組，此處 state 有 7 組但會根據列表全數渲染)
             document.getElementById('regular-zone').innerHTML = state.regularGroups.map(g => `
                 <div class="bg-white rounded-xl p-3 flex items-center justify-between shadow-sm border border-slate-200">
                     <div class="flex flex-col gap-2 w-24 shrink-0">
