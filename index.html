@@ -17,6 +17,7 @@
             flex-direction: column;
             overflow: hidden;
         }
+        /* 砌圖圖標基本樣式：預設暗淡 */
         .shard-icon {
             font-size: 14px;
             cursor: pointer;
@@ -29,8 +30,9 @@
             align-items: center;
             justify-content: center;
         }
+        /* 亮起狀態：恢復色彩、增加不透明度與陰影 */
         .shard-icon.active {
-            filter: grayscale(0%) opacity(100%);
+            filter: grayscale(0%) opacity(100%) !important;
             background: #ffffff;
             border-color: #e2e8f0;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -144,8 +146,12 @@
             events: ["🎁 碎片 +1", "🛡️ 獲保護卡", "💀 全體 -2"]
         };
 
+        // 修改點擊邏輯，確保狀態正確切換
         function toggleShard(type, gId, index) {
-            const group = type === 'special' ? state.specialGroups.find(g => g.id === gId) : state.regularGroups.find(g => g.id == gId);
+            const group = type === 'special' ? 
+                state.specialGroups.find(g => g.id === gId) : 
+                state.regularGroups.find(g => g.id == gId);
+            
             if (group) {
                 group.shards[index] = !group.shards[index];
                 render();
@@ -153,7 +159,10 @@
         }
 
         function toggleShield(type, gId) {
-            const group = type === 'special' ? state.specialGroups.find(g => g.id === gId) : state.regularGroups.find(g => g.id == gId);
+            const group = type === 'special' ? 
+                state.specialGroups.find(g => g.id === gId) : 
+                state.regularGroups.find(g => g.id == gId);
+            
             if (group) {
                 group.shield = !group.shield;
                 render();
@@ -162,7 +171,7 @@
 
         function renderShards(type, gId, shardStates) {
             return shardStates.map((active, idx) => `
-                <span onclick="event.stopPropagation(); toggleShard('${type}', '${gId}', ${idx})" 
+                <span onclick="toggleShard('${type}', '${gId}', ${idx})" 
                       class="shard-icon ${active ? 'active' : ''}">🧩${idx+1}</span>
             `).join('');
         }
@@ -204,7 +213,7 @@
                 </div>
             `;
 
-            // 常規組渲染 (加分按鈕調整為 +2, +1, -1)
+            // 常規組渲染 (維持按鈕：+2, +1, -1)
             document.getElementById('regular-zone').innerHTML = state.regularGroups.map(g => `
                 <div class="bg-white rounded-xl p-3 flex items-center justify-between shadow-sm border border-slate-200">
                     <div class="flex flex-col gap-2 w-24 shrink-0">
