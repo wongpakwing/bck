@@ -147,7 +147,7 @@
         function playEffect(type) {
             const sound = document.getElementById(`sound-${type}`);
             if (sound) {
-                sound.volume = type === 'plus' ? 0.08 : 0.15; // 進一步微調音量
+                sound.volume = type === 'plus' ? 0.08 : 0.15; 
                 sound.currentTime = 0;
                 sound.play().catch(() => {});
             }
@@ -170,7 +170,6 @@
 
         function showIndicator(show) { document.getElementById('sync-indicator').style.display = show ? 'block' : 'none'; }
 
-        // --- 新增：手動輸入分數功能 ---
         function manualEditScore(type, id) {
             let group = type === 'special' 
                 ? state.specialGroups.find(g => g.id === id)
@@ -205,8 +204,9 @@
                     <div class="flex items-center gap-2">
                         <span class="text-lg font-black text-white cursor-pointer" onclick="editGroupName('special','A')">${tA.name} ✎</span>
                         <div class="flex gap-1">
-                            <button onclick="scoreSpec('A',2)" class="bg-red-600 text-white w-7 h-7 rounded font-bold text-[10px]">+2</button>
+                            <button onclick="scoreSpec('A',-1)" class="bg-slate-700 text-white w-7 h-7 rounded font-bold text-[10px]">-1</button>
                             <button onclick="scoreSpec('A',1)" class="bg-red-500 text-white w-7 h-7 rounded font-bold text-[10px]">+1</button>
+                            <button onclick="scoreSpec('A',2)" class="bg-red-600 text-white w-7 h-7 rounded font-bold text-[10px]">+2</button>
                         </div>
                     </div>
                     <div class="flex items-baseline gap-2">
@@ -216,8 +216,9 @@
                     </div>
                     <div class="flex items-center gap-2 text-right">
                         <div class="flex gap-1">
-                            <button onclick="scoreSpec('B',1)" class="bg-blue-500 text-white w-7 h-7 rounded font-bold text-[10px]">+1</button>
                             <button onclick="scoreSpec('B',2)" class="bg-blue-600 text-white w-7 h-7 rounded font-bold text-[10px]">+2</button>
+                            <button onclick="scoreSpec('B',1)" class="bg-blue-500 text-white w-7 h-7 rounded font-bold text-[10px]">+1</button>
+                            <button onclick="scoreSpec('B',-1)" class="bg-slate-700 text-white w-7 h-7 rounded font-bold text-[10px]">-1</button>
                         </div>
                         <span class="text-lg font-black text-white cursor-pointer" onclick="editGroupName('special','B')">${tB.name} ✎</span>
                     </div>
@@ -266,7 +267,6 @@
         function addOneToAll() { state.regularGroups.forEach(g => g.score++); playEffect('plus'); render(); syncState(); }
         function resetData() { if (confirm('重置所有分數？')) { state.specialGroups.forEach(g => g.score = 0); state.regularGroups.forEach(g => g.score = 0); render(); syncState(); } }
 
-        // 骰子、計時器、抽籤邏輯維持不變
         let curDice = [0];
         function openDiceModal() { if (curDice.length === 0) curDice = [0]; reRollAll(); document.getElementById('diceModal').classList.remove('hidden'); }
         function changeDiceCount(d) { if (d > 0) curDice.push(0); else if (curDice.length > 1) curDice.pop(); reRollAll(); }
