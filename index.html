@@ -237,9 +237,29 @@
                 const res = await fetch(API_URL);
                 if (res.ok) {
                     const data = await res.json();
-                    if (data && data.regularGroups) state = { ...DEFAULT_STATE, ...data };
+                    if (data) {
+                        // 強制修復：如果載入的數據碎片少於 6 個，則補足
+                        const fixShards = (groups) => {
+                            groups.forEach(g => {
+                                if (!g.shards || g.shards.length < 6) {
+                                    const current = g.shards || [];
+                                    g.shards = [...current, ...Array(6 - current.length).fill(false)];
+                                }
+                            });
+                        };
+                        
+                        if (data.specialGroups) fixShards(data.specialGroups);
+                        if (data.regularGroups) fixShards(data.regularGroups);
+                        if (data.shards && data.shards.length < 6) {
+                            data.shards = [...data.shards, ...DEFAULT_STATE.shards.slice(data.shards.length)];
+                        }
+
+                        state = { ...DEFAULT_STATE, ...data };
+                    }
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.error("載入失敗:", e);
+            }
             render();
         }
 
