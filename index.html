@@ -47,15 +47,21 @@
         }
 
         .shard-btn {
-            font-size: 14px;
+            font-size: 14px; /* 稍微縮小字體 */
             filter: grayscale(1);
-            opacity: 0.3;
+            opacity: 0.2;
             transition: all 0.3s;
+            cursor: pointer;
+            width: 22px; /* 從 24px 縮小到 22px */
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .shard-btn.active {
             filter: grayscale(0);
             opacity: 1;
-            transform: scale(1.1);
+            transform: scale(1.2);
             text-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
         }
 
@@ -196,15 +202,16 @@
 
     <script>
         const API_URL = 'https://api.npoint.io/085cbfd3a843d7d7df1a';
+        const SHARD_EMOJIS = ["❤️", "🧡", "💛", "💚", "💙", "💜"];
         const DEFAULT_STATE = {
             specialGroups: [
-                { id: 'A', name: '學霸聯盟', score: 0, shards: [false,false,false,false], shield: false }, 
-                { id: 'B', name: '壞蛋聯盟', score: 0, shards: [false,false,false,false], shield: false }
+                { id: 'A', name: '學霸聯盟', score: 0, shards: Array(6).fill(false), shield: false }, 
+                { id: 'B', name: '壞蛋聯盟', score: 0, shards: Array(6).fill(false), shield: false }
             ],
-            regularGroups: Array.from({length:6}, (_,i)=>({ id: i+1, name: `第 ${i+1} 組`, score: 0, shards: [false,false,false,false], shield: false })),
+            regularGroups: Array.from({length:6}, (_,i)=>({ id: i+1, name: `第 ${i+1} 組`, score: 0, shards: Array(6).fill(false), shield: false })),
             students: ["學生A", "學生B", "學生C"],
             events: ["好表現 +1", "認真聽講 +1", "主動回答 +2", "幫助同學 +3"],
-            shards: ["智慧碎片", "力量碎片", "勇氣碎片", "幸運碎片"]
+            shards: ["紅心碎片", "橙心碎片", "黃心碎片", "綠心碎片", "藍心碎片", "紫心碎片"]
         };
 
         let state = JSON.parse(JSON.stringify(DEFAULT_STATE));
@@ -254,48 +261,40 @@
             else sZone.classList.remove('tug-of-war-active');
 
             sZone.innerHTML = `
-                <div class="flex justify-between items-start relative z-10">
-                    <!-- Team A -->
-                    <div class="flex flex-col gap-2 flex-1">
-                        <div class="flex items-center gap-2" onclick="editName('special','A')">
-                            <span class="text-xs font-black text-rose-500 uppercase tracking-widest">${sA.name}</span>
+                <div class="flex justify-between items-start relative z-10 gap-1">
+                    <div class="flex flex-col gap-1 flex-1 min-w-0">
+                        <div class="flex items-center gap-1" onclick="editName('special','A')">
+                            <span class="text-[11px] font-black text-rose-500 uppercase tracking-tighter truncate">${sA.name}</span>
                             ${sA.shield ? '🛡️' : ''}
                         </div>
-                        <div class="flex gap-1">${sA.shards.map((s,i)=>`<div onclick="toggleShard('special','A',${i})" class="shard-btn ${s?'active':''}">🧩</div>`).join('')}</div>
-                        <div class="flex gap-2 mt-4">
-                            <button onclick="addSpecialScore('A',1)" class="w-12 h-12 rounded-xl bg-rose-500 text-white font-black text-lg shadow-lg shadow-rose-900/40 active:scale-90">+1</button>
-                            <button onclick="addSpecialScore('A',2)" class="w-12 h-12 rounded-xl bg-rose-600 text-white font-black text-lg shadow-lg shadow-rose-900/40 active:scale-90">+2</button>
-                            <button onclick="addSpecialScore('A',-1)" class="w-12 h-12 rounded-xl bg-slate-800 text-slate-500 font-black text-lg active:scale-90">-1</button>
+                        <div class="flex gap-[2px] flex-nowrap overflow-x-visible">${sA.shards.map((s,i)=>`<div onclick="toggleShard('special','A',${i})" class="shard-btn ${s?'active':''}" title="${state.shards[i] || ''}">${SHARD_EMOJIS[i]}</div>`).join('')}</div>
+                        <div class="flex gap-1 mt-2">
+                            <button onclick="addSpecialScore('A',1)" class="flex-1 h-9 rounded-xl bg-rose-500 text-white font-black text-xs shadow-lg shadow-rose-900/40 active:scale-90">+1</button>
+                            <button onclick="addSpecialScore('A',2)" class="flex-1 h-9 rounded-xl bg-rose-600 text-white font-black text-xs shadow-lg shadow-rose-900/40 active:scale-90">+2</button>
+                            <button onclick="addSpecialScore('A',-1)" class="w-8 h-9 rounded-xl bg-slate-800 text-slate-500 font-black text-xs active:scale-90">-1</button>
                         </div>
                     </div>
 
-                    <!-- Scores -->
-                    <div class="flex items-center gap-4 px-6 pt-4">
-                        <div class="flex flex-col items-center">
-                            <span class="text-6xl font-black text-rose-500 italic drop-shadow-lg" id="score-A">${sA.score}</span>
-                        </div>
-                        <div class="h-12 w-px bg-slate-700 opacity-50"></div>
-                        <div class="flex flex-col items-center">
-                            <span class="text-6xl font-black text-blue-500 italic drop-shadow-lg" id="score-B">${sB.score}</span>
-                        </div>
+                    <div class="flex items-center gap-1 px-1 pt-4 shrink-0">
+                        <span class="text-4xl font-black text-rose-500 italic drop-shadow-lg" id="score-A">${sA.score}</span>
+                        <div class="h-6 w-px bg-slate-700 opacity-50 mx-1"></div>
+                        <span class="text-4xl font-black text-blue-500 italic drop-shadow-lg" id="score-B">${sB.score}</span>
                     </div>
 
-                    <!-- Team B -->
-                    <div class="flex flex-col gap-2 flex-1 items-end text-right">
-                        <div class="flex items-center gap-2" onclick="editName('special','B')">
+                    <div class="flex flex-col gap-1 flex-1 items-end text-right min-w-0">
+                        <div class="flex items-center gap-1" onclick="editName('special','B')">
                             ${sB.shield ? '🛡️' : ''}
-                            <span class="text-xs font-black text-blue-500 uppercase tracking-widest">${sB.name}</span>
+                            <span class="text-[11px] font-black text-blue-500 uppercase tracking-tighter truncate">${sB.name}</span>
                         </div>
-                        <div class="flex gap-1">${sB.shards.map((s,i)=>`<div onclick="toggleShard('special','B',${i})" class="shard-btn ${s?'active':''}">🧩</div>`).join('')}</div>
-                        <div class="flex gap-2 mt-4">
-                            <button onclick="addSpecialScore('B',-1)" class="w-12 h-12 rounded-xl bg-slate-800 text-slate-500 font-black text-lg active:scale-90">-1</button>
-                            <button onclick="addSpecialScore('B',2)" class="w-12 h-12 rounded-xl bg-blue-600 text-white font-black text-lg shadow-lg shadow-blue-900/40 active:scale-90">+2</button>
-                            <button onclick="addSpecialScore('B',1)" class="w-12 h-12 rounded-xl bg-blue-500 text-white font-black text-lg shadow-lg shadow-blue-900/40 active:scale-90">+1</button>
+                        <div class="flex gap-[2px] flex-nowrap justify-end overflow-x-visible">${sB.shards.map((s,i)=>`<div onclick="toggleShard('special','B',${i})" class="shard-btn ${s?'active':''}" title="${state.shards[i] || ''}">${SHARD_EMOJIS[i]}</div>`).join('')}</div>
+                        <div class="flex gap-1 mt-2 w-full justify-end">
+                            <button onclick="addSpecialScore('B',-1)" class="w-8 h-9 rounded-xl bg-slate-800 text-slate-500 font-black text-xs active:scale-90">-1</button>
+                            <button onclick="addSpecialScore('B',2)" class="flex-1 h-9 rounded-xl bg-blue-600 text-white font-black text-xs shadow-lg shadow-blue-900/40 active:scale-90">+2</button>
+                            <button onclick="addSpecialScore('B',1)" class="flex-1 h-9 rounded-xl bg-blue-500 text-white font-black text-xs shadow-lg shadow-blue-900/40 active:scale-90">+1</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Duel Track -->
                 <div class="mt-6 relative h-4 bg-slate-800 rounded-full overflow-hidden border border-slate-700 shadow-inner">
                     <div class="absolute left-0 h-full bg-gradient-to-r from-rose-600 to-rose-400 transition-all duration-700" style="width: ${leftW}%"></div>
                     <div class="absolute right-0 h-full bg-gradient-to-l from-blue-600 to-blue-400 transition-all duration-700" style="width: ${100-leftW}%"></div>
@@ -305,29 +304,33 @@
                 </div>
             `;
 
-            // 常規組別 - 帶有自動排序
             const sortedGroups = [...state.regularGroups].sort((a, b) => b.score - a.score);
             const rZone = document.getElementById('regular-zone');
             
             rZone.innerHTML = sortedGroups.map((g, index) => `
-                <div class="group-item glass-card rounded-2xl p-3 flex items-center justify-between shadow-md border-l-4 ${index < 3 ? 'border-amber-400' : 'border-slate-200'}">
-                    <div class="flex items-center gap-4 shrink-0">
-                        <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-black text-xs text-slate-400">#${index + 1}</div>
-                        <div class="flex flex-col">
-                            <span class="text-[13px] font-black text-slate-800 mb-1" onclick="editName('regular',${g.id})">${g.name}</span>
-                            <div class="flex gap-1">
-                                ${g.shards.map((s,si)=>`<div onclick="toggleShard('regular',${g.id},${si})" class="shard-btn ${s?'active':''}">🧩</div>`).join('')}
-                                <span onclick="toggleShield('regular',${g.id})" class="ml-1 cursor-pointer ${g.shield?'opacity-100':'opacity-20'} grayscale-${g.shield?0:1}">🛡️</span>
+                <div class="group-item glass-card rounded-2xl p-2.5 flex items-center justify-between shadow-md border-l-4 ${index < 3 ? 'border-amber-400' : 'border-slate-200'}">
+                    <!-- 左側資訊 -->
+                    <div class="flex items-center gap-2 shrink-0 max-w-[50%]">
+                        <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center font-black text-[10px] text-slate-400 shrink-0">#${index + 1}</div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="text-[13px] font-black text-slate-800 mb-0.5 truncate" onclick="editName('regular',${g.id})">${g.name}</span>
+                            <div class="flex gap-[1px] flex-nowrap items-center">
+                                ${g.shards.map((s,si)=>`<div onclick="toggleShard('regular',${g.id},${si})" class="shard-btn ${s?'active':''}" style="width:18px; height:18px; font-size:11px;">${SHARD_EMOJIS[si]}</div>`).join('')}
+                                <span onclick="toggleShield('regular',${g.id})" class="ml-1 cursor-pointer text-xs ${g.shield?'opacity-100':'opacity-20'} grayscale-${g.shield?0:1}">🛡️</span>
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- 中間分數 -->
                     <div class="flex-grow text-center">
-                        <span class="text-4xl font-black text-slate-800 tracking-tighter score-pop italic" onclick="modifyScore('regular',${g.id})">${g.score}</span>
+                        <span class="text-4xl font-black text-slate-800 tracking-tighter score-pop italic cursor-pointer" onclick="modifyScore('regular',${g.id})">${g.score}</span>
                     </div>
-                    <div class="flex gap-2">
-                        <button onclick="addScore('regular',${g.id},1)" class="w-12 h-12 rounded-xl bg-emerald-500 text-white font-black shadow-lg shadow-emerald-100 active:scale-90">+1</button>
-                        <button onclick="addScore('regular',${g.id},2)" class="w-12 h-12 rounded-xl bg-emerald-600 text-white font-black shadow-lg shadow-emerald-100 active:scale-90">+2</button>
-                        <button onclick="addScore('regular',${g.id},-1)" class="w-12 h-12 rounded-xl bg-slate-50 text-slate-300 font-black border border-slate-100 active:scale-90">-1</button>
+                    
+                    <!-- 右側按鈕 -->
+                    <div class="flex gap-1.5 shrink-0">
+                        <button onclick="addScore('regular',${g.id},1)" class="w-11 h-11 rounded-xl bg-emerald-500 text-white font-black shadow-lg shadow-emerald-100 active:scale-90 text-sm">+1</button>
+                        <button onclick="addScore('regular',${g.id},2)" class="w-11 h-11 rounded-xl bg-emerald-600 text-white font-black shadow-lg shadow-emerald-100 active:scale-90 text-sm">+2</button>
+                        <button onclick="addScore('regular',${g.id},-1)" class="w-9 h-11 rounded-xl bg-slate-50 text-slate-300 font-black border border-slate-100 active:scale-90 text-xs">-1</button>
                     </div>
                 </div>
             `).join('');
