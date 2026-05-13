@@ -3,21 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>課室計分系統 Pro - 專業穩定版</title>
+    <title>課室計分系統 Pro - 修正版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=JetBrains+Mono:wght@700&display=swap');
-        
         :root { --sat: 0.95; }
         body { 
             font-family: 'Noto Sans TC', sans-serif; 
             touch-action: manipulation; background: #f1f5f9;
             height: 100vh; display: flex; flex-direction: column;
-            user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+            user-select: none; -webkit-user-select: none;
         }
         .glass-card { background: rgba(255, 255, 255, var(--sat)); backdrop-filter: blur(10px); }
-        
         .shard-btn {
             font-size: 16px; filter: grayscale(1); opacity: 0.2;
             transition: all 0.2s; cursor: pointer;
@@ -25,23 +23,14 @@
             display: flex; align-items: center; justify-content: center;
         }
         .shard-btn.active { filter: grayscale(0); opacity: 1; transform: scale(1.1); }
-        
         #regular-zone-container::-webkit-scrollbar { width: 4px; }
         #regular-zone-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        
         .score-btn {
             display: flex; align-items: center; justify-content: center;
             border-radius: 0.75rem; font-weight: 900;
             transition: transform 0.1s; color: white; flex-shrink: 0;
         }
         .score-btn:active { transform: scale(0.9); }
-        
-        .dice {
-            width: 45px; height: 45px; background: white;
-            border: 3px solid #1e293b; border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 22px; font-weight: 900; box-shadow: 3px 3px 0px #1e293b;
-        }
         .fire-icon { display: inline-block; animation: flicker 1s infinite alternate; }
         @keyframes flicker {
             0% { transform: scale(1) rotate(-5deg); opacity: 0.9; }
@@ -93,7 +82,6 @@
         </div>
     </footer>
 
-    <!-- Modals -->
     <div id="modal-backdrop" class="hidden fixed inset-0 bg-slate-900/70 z-[99] backdrop-blur-sm"></div>
     <div id="diceModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl">
@@ -134,11 +122,8 @@
         const API_URL = 'https://api.npoint.io/085cbfd3a843d7d7df1a';
         const SHARD_EMOJIS = ["❤️", "🧡", "💛", "💚", "💙", "💜"];
         const DEFAULT_STATE = {
-            specialGroups: [
-                { id: 'A', name: '紅組', score: 0, shards: Array(6).fill(false), shield: 0 }, 
-                { id: 'B', name: '藍組', score: 0, shards: Array(6).fill(false), shield: 0 }
-            ],
-            regularGroups: Array.from({length:6}, (_,i)=>({ id: i+1, name: `第 ${i+1} 組`, score: 0, shards: Array(6).fill(false), shield: 0 })),
+            specialGroups: [ { id: 'A', name: '紅組', score: 0, shards: Array(6).fill(false), shield: 0 }, { id: 'B', name: '藍組', score: 0, shards: Array(6).fill(false), shield: 0 } ],
+            regularGroups: Array.from({length:6}, (_,i)=>({ id: (i+1).toString(), name: `第 ${i+1} 組`, score: 0, shards: Array(6).fill(false), shield: 0 })),
             students: ["學生A"], events: ["加分"], shards: ["紅心", "橙心", "黃心", "綠心", "藍心", "紫心"]
         };
         let state = JSON.parse(JSON.stringify(DEFAULT_STATE));
@@ -150,15 +135,14 @@
                     const data = await res.json();
                     if (data && typeof data === 'object') {
                         const fix = (g, dName, dId) => {
-                            if (!g || typeof g !== 'object') return { ...DEFAULT_STATE.regularGroups[0], name: dName, id: dId };
+                            if (!g) return { ...DEFAULT_STATE.regularGroups[0], name: dName, id: dId.toString() };
                             return {
-                                id: g.id || dId, name: g.name || dName, score: typeof g.score === 'number' ? g.score : 0, 
-                                shield: typeof g.shield === 'number' ? g.shield : 0,
+                                id: (g.id || dId).toString(), name: g.name || dName, score: Number(g.score) || 0, shield: Number(g.shield) || 0,
                                 shards: Array.isArray(g.shards) && g.shards.length === 6 ? g.shards : Array(6).fill(false)
                             };
                         };
                         state.specialGroups = [ fix(data.specialGroups?.[0], '紅組', 'A'), fix(data.specialGroups?.[1], '藍組', 'B') ];
-                        state.regularGroups = Array.from({length:6}, (_, i) => fix(data.regularGroups?.[i], `第 ${i+1} 組`, i + 1));
+                        state.regularGroups = Array.from({length:6}, (_, i) => fix(data.regularGroups?.[i], `第 ${i+1} 組`, i+1));
                         state.students = data.students || DEFAULT_STATE.students; state.events = data.events || DEFAULT_STATE.events; state.shards = data.shards || DEFAULT_STATE.shards;
                     }
                 }
@@ -173,98 +157,79 @@
             setTimeout(() => document.getElementById('syncIndicator').classList.add('hidden'), 500);
         }
 
-        function render() {
-            const tugOfWarGroupIds = getTugOfWarGroupIds();
-            renderSpecialGroups(tugOfWarGroupIds);
-            renderRegularGroups(tugOfWarGroupIds);
-        }
-
         function getTugOfWarGroupIds() {
-            const allGroups = [...state.specialGroups, ...state.regularGroups];
+            const all = [...state.specialGroups, ...state.regularGroups];
             const scoreMap = {};
-            for (const group of allGroups) {
-                if (group.score > 0) {
-                    if (!scoreMap[group.score]) scoreMap[group.score] = [];
-                    scoreMap[group.score].push(group.id);
+            all.forEach(g => {
+                if (g.score > 0) {
+                    if (!scoreMap[g.score]) scoreMap[g.score] = [];
+                    scoreMap[g.score].push(g.id.toString());
                 }
-            }
-            const tugOfWarIds = [];
-            for (const score in scoreMap) { if (scoreMap[score].length > 1) tugOfWarIds.push(...scoreMap[score]); }
-            return tugOfWarIds;
+            });
+            const ids = [];
+            for (const s in scoreMap) { if (scoreMap[s].length > 1) ids.push(...scoreMap[s]); }
+            return ids;
         }
 
-        function renderSpecialGroups(tugOfWarGroupIds) {
+        function render() {
+            const tugIds = getTugOfWarGroupIds();
+            renderSpecialGroups(tugIds);
+            renderRegularGroups(tugIds);
+        }
+
+        function renderSpecialGroups(tugIds) {
             const sA = state.specialGroups[0]; const sB = state.specialGroups[1];
-            const topTugOfWar = tugOfWarGroupIds.includes(sA.id) && tugOfWarGroupIds.includes(sB.id);
+            const topTug = tugIds.includes(sA.id) && tugIds.includes(sB.id) && sA.score === sB.score;
             const groupHTML = (g, side) => {
                 const isA = side === 'A';
-                const scoreButtonsHTML = `<button onclick="changeScore('special','${g.id}', 2)" class="score-btn ${isA ? 'bg-rose-600' : 'bg-blue-600'} w-9 h-7 text-[10px]">+2</button><button onclick="changeScore('special','${g.id}', 1)" class="score-btn ${isA ? 'bg-rose-500' : 'bg-blue-500'} w-9 h-7 text-[10px]">+1</button><button onclick="changeScore('special','${g.id}', -1)" class="score-btn bg-slate-700 w-9 h-7 text-[10px]">-1</button>`;
+                const color = isA ? 'bg-rose' : 'bg-blue';
+                const scoreButtons = `<button onclick="changeScore('${isA?'special':'special'}','${g.id}', 2)" class="score-btn ${color}-600 w-9 h-7 text-[10px]">+2</button><button onclick="changeScore('special','${g.id}', 1)" class="score-btn ${color}-500 w-9 h-7 text-[10px]">+1</button><button onclick="changeScore('special','${g.id}', -1)" class="score-btn bg-slate-700 w-9 h-7 text-[10px]">-1</button>`;
                 const shardsHTML = g.shards.map((s,i) => `<div onclick="toggleShard('special','${g.id}',${i})" class="shard-btn ${s?'active':''}">${SHARD_EMOJIS[i]}</div>`).join('');
-                return `<div class="flex flex-col gap-2 flex-1 ${isA ? 'items-start':'items-end'}"><div class="flex items-center gap-2 ${isA ? '':'flex-row-reverse'}"><span class="text-sm font-black truncate" onclick="editName('special','${g.id}')">${g.name}</span><div class="flex items-center bg-white/10 px-1.5 py-0.5 rounded-lg gap-1">${isA ? `<span class="shield-icon text-sm cursor-pointer" onclick="removeShield('special','${g.id}')">${'🛡️'.repeat(g.shield)}</span><span class="text-xs font-bold text-slate-400 cursor-pointer" onclick="addShield('special','${g.id}')">＋</span>` : `<span class="text-xs font-bold text-slate-400 cursor-pointer" onclick="addShield('special','${g.id}')">＋</span><span class="shield-icon text-sm cursor-pointer" onclick="removeShield('special','${g.id}')">${'🛡️'.repeat(g.shield)}</span>`}</div></div><div class="flex gap-1 ${isA ? '':'justify-end'}">${shardsHTML}</div><div class="flex gap-1.5 mt-1">${scoreButtonsHTML}</div></div>`;
+                return `<div class="flex flex-col gap-2 flex-1 ${isA ? 'items-start':'items-end'}"><div class="flex items-center gap-2 ${isA ? '':'flex-row-reverse'}"><span class="text-sm font-black truncate" onclick="editName('special','${g.id}')">${g.name}</span><div class="flex items-center bg-white/10 px-1.5 py-0.5 rounded-lg gap-1">${isA ? `<span class="shield-icon text-sm cursor-pointer" onclick="removeShield('special','${g.id}')">${'🛡️'.repeat(g.shield)}</span><span class="text-xs font-bold text-slate-400 cursor-pointer" onclick="addShield('special','${g.id}')">＋</span>` : `<span class="text-xs font-bold text-slate-400 cursor-pointer" onclick="addShield('special','${g.id}')">＋</span><span class="shield-icon text-sm cursor-pointer" onclick="removeShield('special','${g.id}')">${'🛡️'.repeat(g.shield)}</span>`}</div></div><div class="flex gap-1 ${isA ? '':'justify-end'}">${shardsHTML}</div><div class="flex gap-1.5 mt-1">${scoreButtons}</div></div>`;
             };
-            // 核心修改：在 sA.score 和 sB.score 處加入了 onclick="manualScore..."
-            document.getElementById('special-zone').innerHTML = `
-                <div class="flex justify-between items-center text-white gap-3">
-                    ${groupHTML(sA, 'A')}
-                    <div class="flex items-center gap-1.5 text-3xl sm:text-4xl font-black italic shrink-0">
-                        <span class="text-rose-400 cursor-pointer" onclick="manualScore('special','${sA.id}')">${sA.score}</span>
-                        <span class="text-slate-600 text-base sm:text-lg ${topTugOfWar ? 'fire-icon text-amber-500' : ''}">${topTugOfWar ? '🔥' : 'VS'}</span>
-                        <span class="text-blue-400 cursor-pointer" onclick="manualScore('special','${sB.id}')">${sB.score}</span>
-                    </div>
-                    ${groupHTML(sB, 'B')}
-                </div>`;
+            document.getElementById('special-zone').innerHTML = `<div class="flex justify-between items-center text-white gap-3">${groupHTML(sA, 'A')}<div class="flex items-center gap-1.5 text-3xl sm:text-4xl font-black italic shrink-0"><span class="text-rose-400 cursor-pointer" onclick="manualScore('special','${sA.id}')">${sA.score}</span><span class="text-slate-600 text-base sm:text-lg ${topTug ? 'fire-icon text-amber-500' : ''}">${topTug ? '🔥' : 'VS'}</span><span class="text-blue-400 cursor-pointer" onclick="manualScore('special','${sB.id}')">${sB.score}</span></div>${groupHTML(sB, 'B')}</div>`;
         }
 
-        function renderRegularGroups(tugOfWarGroupIds) {
+        function renderRegularGroups(tugIds) {
             document.getElementById('regular-zone').innerHTML = state.regularGroups.map(g => {
-                const isTugOfWar = tugOfWarGroupIds.includes(g.id);
-                return `<div class="glass-card rounded-xl p-3 flex items-center shadow-sm border border-slate-200 gap-3">
-                    <div class="flex flex-col gap-1.5 flex-grow min-w-0">
-                        <span class="text-sm font-black truncate" onclick="editName('regular','${g.id}')">${g.name}</span>
-                        <div class="flex items-center gap-1">
-                            ${g.shards.map((s,i)=>`<div onclick="toggleShard('regular','${g.id},${i})" class="shard-btn !w-[18px] !h-[18px] !text-[12px] ${s?'active':''}">${SHARD_EMOJIS[i]}</div>`).join('')}
-                            <div class="ml-2 flex items-center bg-slate-100 px-1.5 py-0.5 rounded-md gap-1">
-                                <span class="shield-icon text-sm cursor-pointer" onclick="removeShield('regular','${g.id}')">${'🛡️'.repeat(g.shield)}</span>
-                                <span class="text-xs font-bold text-slate-400 cursor-pointer" onclick="addShield('regular','${g.id}')">＋</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <div class="text-3xl font-black text-slate-800 italic relative cursor-pointer" onclick="manualScore('regular','${g.id}')">${g.score}${isTugOfWar ? '<span class="absolute -right-4 -top-1 text-sm fire-icon">🔥</span>' : ''}</div>
-                    </div>
-                    <div class="flex gap-1.5 ml-2">
-                        <button onclick="changeScore('regular','${g.id}',2)" class="score-btn bg-emerald-600 w-10 h-10 text-sm shadow-md">+2</button>
-                        <button onclick="changeScore('regular','${g.id}',1)" class="score-btn bg-emerald-500 w-10 h-10 text-sm shadow-md">+1</button>
-                        <button onclick="changeScore('regular','${g.id},-1)" class="score-btn bg-slate-200 !text-slate-500 w-9 h-10 text-xs">-1</button>
-                    </div>
-                </div>`
+                const isTug = tugIds.includes(g.id.toString());
+                return `<div class="glass-card rounded-xl p-3 flex items-center shadow-sm border border-slate-200 gap-3"><div class="flex flex-col gap-1.5 flex-grow min-w-0"><span class="text-sm font-black truncate" onclick="editName('regular','${g.id}')">${g.name}</span><div class="flex items-center gap-1">${g.shards.map((s,i)=>`<div onclick="toggleShard('regular','${g.id}',${i})" class="shard-btn !w-[18px] !h-[18px] !text-[12px] ${s?'active':''}">${SHARD_EMOJIS[i]}</div>`).join('')}<div class="ml-2 flex items-center bg-slate-100 px-1.5 py-0.5 rounded-md gap-1"><span class="shield-icon text-sm cursor-pointer" onclick="removeShield('regular','${g.id}')">${'🛡️'.repeat(g.shield)}</span><span class="text-xs font-bold text-slate-400 cursor-pointer" onclick="addShield('regular','${g.id}')">＋</span></div></div></div><div class="flex items-center gap-1"><div class="text-3xl font-black text-slate-800 italic relative cursor-pointer" onclick="manualScore('regular','${g.id}')">${g.score}${isTug ? '<span class="absolute -right-4 -top-1 text-sm fire-icon">🔥</span>' : ''}</div></div><div class="flex gap-1.5 ml-2"><button onclick="changeScore('regular','${g.id}',2)" class="score-btn bg-emerald-600 w-10 h-10 text-sm shadow-md">+2</button><button onclick="changeScore('regular','${g.id}',1)" class="score-btn bg-emerald-500 w-10 h-10 text-sm shadow-md">+1</button><button onclick="changeScore('regular','${g.id}',-1)" class="score-btn bg-slate-200 !text-slate-500 w-9 h-10 text-xs">-1</button></div></div>`
             }).join('');
         }
 
-        const findGroup = (type, id) => type === 'special' ? state.specialGroups.find(g => g.id == id) : state.regularGroups.find(g => g.id == id);
+        const findGroup = (type, id) => {
+            const targetId = id.toString();
+            return type === 'special' ? state.specialGroups.find(g => g.id.toString() === targetId) : state.regularGroups.find(g => g.id.toString() === targetId);
+        };
+        
         function changeScore(type, id, val) {
             const group = findGroup(type, id); if (!group) return;
             if (val > 0) {
-                const cur = group.score;
-                const ops = [...state.specialGroups, ...state.regularGroups].filter(g => g.id !== group.id && g.score === cur && cur > 0);
-                ops.forEach(op => op.score = Math.max(0, op.score - 1));
+                const curScore = group.score;
+                const tugIds = getTugOfWarGroupIds();
+                if (tugIds.includes(group.id.toString())) {
+                    [...state.specialGroups, ...state.regularGroups].forEach(g => {
+                        if (g.id.toString() !== group.id.toString() && g.score === curScore && curScore > 0) {
+                            g.score = Math.max(0, g.score - 1);
+                        }
+                    });
+                }
             }
             group.score = Math.max(0, group.score + val); render(); saveData();
         }
 
-        function addShield(type, id) { const group = findGroup(type, id); if (group && group.shield < 3) { group.shield++; render(); saveData(); } }
-        function removeShield(type, id) { const group = findGroup(type, id); if (group && group.shield > 0) { group.shield--; render(); saveData(); } }
-        function toggleShard(type, id, i) { const group = findGroup(type, id); if (group && group.shards) { group.shards[i] = !group.shards[i]; render(); saveData(); } }
+        function addShield(type, id) { const g = findGroup(type, id); if (g && g.shield < 3) { g.shield++; render(); saveData(); } }
+        function removeShield(type, id) { const g = findGroup(type, id); if (g && g.shield > 0) { g.shield--; render(); saveData(); } }
+        function toggleShard(type, id, i) { const g = findGroup(type, id); if (g) { g.shards[i] = !g.shards[i]; render(); saveData(); } }
         function addScoreToAll(val) { state.specialGroups.forEach(g => g.score = Math.max(0, g.score + val)); state.regularGroups.forEach(g => g.score = Math.max(0, g.score + val)); render(); saveData(); confetti(); }
         function resetData() { if (confirm("確定重置？")) { state.specialGroups.forEach(g => {g.score=0; g.shield=0; g.shards.fill(false)}); state.regularGroups.forEach(g => {g.score=0; g.shield=0; g.shards.fill(false)}); render(); saveData(); } }
         const backdrop = document.getElementById('modal-backdrop');
         function openModal(id) { backdrop.classList.remove('hidden'); document.getElementById(id).classList.remove('hidden'); }
         function closeModal(id) { backdrop.classList.add('hidden'); document.getElementById(id).classList.add('hidden'); }
-        function editName(type, id) { const group = findGroup(type, id); if (!group) return; const n = prompt("修改組名:", group.name); if (n) { group.name = n; render(); saveData(); } }
-        function manualScore(type, id) { const group = findGroup(type, id); if (!group) return; const n = prompt("手動調整分數:", group.score); if (n !== null) { group.score = parseInt(n, 10) || 0; render(); saveData(); } }
+        function editName(type, id) { const g = findGroup(type, id); if (!g) return; const n = prompt("修改組名:", g.name); if (n) { g.name = n; render(); saveData(); } }
+        function manualScore(type, id) { const g = findGroup(type, id); if (!g) return; const n = prompt("手動調整:", g.score); if (n !== null) { g.score = parseInt(n, 10) || 0; render(); saveData(); } }
         function openSettings(m) { currentSettingsMode = m; document.getElementById('settingsTitle').innerText = `編輯${m}列表`; document.getElementById('settingsInput').value = (state[m] || []).join('\n'); openModal('settingsModal'); }
         function saveSettings() { state[currentSettingsMode] = document.getElementById('settingsInput').value.split('\n').filter(l => l.trim()); closeModal('settingsModal'); render(); saveData(); }
-        
         let diceCount = 1;
         function changeDiceCount(v) { diceCount = Math.max(1, Math.min(6, diceCount+v)); document.getElementById('diceCountText').innerText = diceCount; }
         function openDiceModal() { changeDiceCount(1-diceCount); openModal('diceModal'); rollDices(); }
@@ -273,7 +238,7 @@
             totalDiv.innerText = ""; let ticks = 0;
             const timer = setInterval(() => {
                 let results = Array.from({length: diceCount}, () => Math.floor(Math.random() * 6) + 1);
-                area.innerHTML = results.map(r => `<div class="dice">${r}</div>`).join('');
+                area.innerHTML = results.map(r => `<div class="dice" style="width:45px;height:45px;border:3px solid #1e293b;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;box-shadow:3px 3px 0px #1e293b;background:white;">${r}</div>`).join('');
                 if (ticks++ > 15) { clearInterval(timer); totalDiv.innerText = "總點數: " + results.reduce((a, b) => a + b, 0); confetti(); }
             }, 60);
         }
@@ -283,7 +248,6 @@
             let ticks = 0;
             const timer = setInterval(() => { document.getElementById('pickResult').innerText = list[Math.floor(Math.random() * list.length)]; if (ticks++ > 20) { clearInterval(timer); confetti(); } }, 80);
         }
-
         let timerSeconds = 0, timerInterval = null;
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playNote(freq, delay = 0) {
